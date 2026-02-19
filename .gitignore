@@ -1,0 +1,46 @@
+# ===== Environnement Python =====
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+*.egg
+
+# ===== Données (trop volumineux pour Git) =====
+datasets/
+outputs/
+pseudo_labels/
+
+# ===== Checkpoints & logs =====
+outputs/checkpoints/
+outputs/logs/
+outputs/visualizations/
+outputs/pseudo_labels/
+*.pt
+*.pth
+*.ckpt
+*.onnx
+
+# ===== Notebooks checkpoints =====
+.ipynb_checkpoints/
+
+# ===== IDE =====
+.vscode/
+.idea/
+
+# ===== OS =====
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ===== W&B =====
+wandb/
+
+# ===== DVC =====
+*.dvc
+.dvc/
+
+# ===== Divers =====
+*.log
+*.tmp

@@ -1,0 +1,83 @@
+{
+  "project": "Depth Anything V2 — PFE",
+  "version": "0.1.0",
+  "last_updated": "",
+  "datasets": {
+    "synthetic": {
+      "hypersim": {
+        "source": "https://github.com/apple/ml-hypersim",
+        "description": "Images indoor synthétiques avec depth GT précises",
+        "license": "CC BY-SA 4.0",
+        "n_images_target": 50000,
+        "n_images_downloaded": 0,
+        "storage_gb": null,
+        "download_date": null,
+        "preprocessing": {
+          "resize": "518x518",
+          "depth_format": "float32 .npy",
+          "corrupted_removed": 0,
+          "too_small_filtered": 0
+        }
+      },
+      "virtual_kitti_2": {
+        "source": "https://europe.naverlabs.com/research/computer-vision/proxy-virtual-worlds-vkitti-2/",
+        "description": "Images outdoor/driving synthétiques",
+        "license": "CC BY-NC-SA 4.0",
+        "n_images_target": 20000,
+        "n_images_downloaded": 0,
+        "storage_gb": null,
+        "download_date": null
+      }
+    },
+    "real_unlabeled": {
+      "sa1b_subset": {
+        "source": "https://ai.meta.com/datasets/segment-anything/",
+        "description": "Subset de Segment Anything 1B (images réelles diverses)",
+        "license": "Apache 2.0 (images), propre license Meta",
+        "n_images_target": 200000,
+        "n_images_downloaded": 0,
+        "storage_gb": null,
+        "download_date": null,
+        "selection_criteria": {
+          "min_resolution": 512,
+          "diversity": "indoor + outdoor",
+          "sampling": "aléatoire stratifié"
+        }
+      }
+    },
+    "benchmarks": {
+      "nyu_depth_v2_test": {
+        "source": "https://cs.nyu.edu/~silberman/datasets/nyu_depth_v2.html",
+        "description": "Test set NYU-Depth V2 (indoor, 654 images)",
+        "n_images": 654,
+        "resolution": "640x480",
+        "depth_range_m": [0.001, 10.0],
+        "download_date": null
+      },
+      "kitti_eigen_test": {
+        "source": "http://www.cvlibs.net/datasets/kitti/",
+        "description": "KITTI Eigen split test set (outdoor/driving, 697 images)",
+        "n_images": 697,
+        "depth_range_m": [0.001, 80.0],
+        "download_date": null
+      }
+    }
+  },
+  "pseudo_labels": {
+    "generated_by": "Teacher (DINOv2-Giant + DPT)",
+    "format": "float32 .npy",
+    "n_generated": 0,
+    "generation_date": null,
+    "quality_check": {
+      "n_checked": 0,
+      "n_valid": 0,
+      "n_corrupted": 0
+    }
+  },
+  "splits": {
+    "method": "random 90/10",
+    "seed": 42,
+    "train_ratio": 0.9,
+    "val_ratio": 0.1
+  }
+}

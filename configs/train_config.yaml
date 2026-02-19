@@ -1,0 +1,84 @@
+# ============================================================
+# Configuration d'entraînement — Depth Anything V2 PFE
+# ============================================================
+# Ref: Phase 4.2-4.3 de la roadmap + Section 7.1 du papier
+
+# --- Modèle Student ---
+model:
+  backbone: "dinov2_vits14"         # DINOv2-Small (25M params)
+  pretrained_backbone: true
+  freeze_backbone: false            # true = fine-tune decoder seul
+  decoder_hidden_dim: 256
+  image_size: 518                   # Multiple de 14
+
+# --- Fonctions de perte ---
+loss:
+  # Scale-and-Shift Invariant Loss (L_ssi)
+  lambda_ssi: 0.5                   # Coefficient d'invariance à l'échelle
+  use_log: true                     # Travailler en espace log-depth
+
+  # Gradient Matching Loss (L_gm)
+  alpha_gm: 0.5                     # Poids de L_gm dans la loss totale
+
+  # Masquage top-K%
+  top_k_masking: 0.1                # Ignorer les 10% de pixels avec les + grandes erreurs
+
+# --- Phase 4.2 : Entraînement initial (50k images) ---
+training_phase1:
+  epochs: 20
+  batch_size: 16
+  learning_rate: 1.0e-4
+  weight_decay: 0.01
+  optimizer: "adamw"
+  scheduler: "cosine_annealing"
+  gradient_clip_max_norm: 1.0
+  checkpoint_interval: 2            # Sauvegarder tous les 2 epochs
+  early_stopping_patience: 5        # Arrêter si val loss stagne 5 epochs
+  log_interval: 50                  # Logger tous les 50 batches
+
+# --- Phase 4.3 : Scale-up (200k images) ---
+training_phase2:
+  epochs: 15                        # Reprendre depuis phase1
+  batch_size: 16
+  learning_rate: 5.0e-5             # LR réduit pour fine-tuning
+  weight_decay: 0.01
+  resume_from: "outputs/checkpoints/best_model.pt"
+
+# --- Hyperparameter tuning (Phase 4.3) ---
+hyperparameter_search:
+  learning_rates: [5.0e-5, 1.0e-4, 5.0e-4]
+  weight_decays: [0.01, 0.05]
+  notes: "Tester 2-3 combinaisons manuellement"
+
+# --- Ablation studies (optionnel, si temps disponible) ---
+ablation:
+  test_without_gm: false            # Tester L_ssi seul (sans L_gm)
+  test_without_masking: false        # Tester sans top-10% masking
+  test_resolutions: [384, 518, 640]  # Tester différentes résolutions
+
+# --- Overfitting test (sanity check, Phase 3 semaine 14) ---
+overfitting_test:
+  n_images: 10
+  epochs: 100
+  learning_rate: 1.0e-3
+  target_loss: 0.01                 # Loss < 0.01 = architecture OK
+
+# --- Infrastructure ---
+infrastructure:
+  device: "cuda"                    # "cuda" ou "cpu"
+  seed: 42
+  num_workers: 8
+  mixed_precision: false            # AMP (à tester sur H100)
+  compile_model: false              # torch.compile (PyTorch 2.x)
+
+# --- Logging ---
+logging:
+  backend: "tensorboard"            # "tensorboard" ou "wandb"
+  project_name: "depth-anything-v2-pfe"
+  log_dir: "outputs/logs"
+
+# --- Sortie ---
+output:
+  checkpoint_dir: "outputs/checkpoints"
+  log_dir: "outputs/logs"
+  max_checkpoints: 5                # Garder les N checkpoints les + récents

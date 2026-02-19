@@ -1,0 +1,85 @@
+# ============================================================
+# Configuration d'évaluation — Depth Anything V2 PFE
+# ============================================================
+# Ref: Phase 5 de la roadmap + Section 7 du papier
+
+# --- Modèle ---
+model:
+  checkpoint: "outputs/checkpoints/best_model.pt"
+  backbone: "dinov2_vits14"
+  image_size: 518
+
+# --- Métriques ---
+metrics:
+  # Métriques d'erreur (plus bas = mieux)
+  - absrel       # Absolute Relative Error
+  - rmse         # Root Mean Squared Error
+  - log10        # Mean log10 Error
+
+  # Métriques de précision (plus haut = mieux)
+  - delta1       # δ < 1.25
+  - delta2       # δ < 1.25²
+  - delta3       # δ < 1.25³
+
+# --- Benchmarks ---
+benchmarks:
+  nyu_depth_v2:
+    data_dir: "datasets/benchmarks/nyu_depth_v2"
+    min_depth: 0.001
+    max_depth: 10.0
+    use_eigen_crop: true
+    use_median_scaling: true
+
+  kitti:
+    data_dir: "datasets/benchmarks/kitti"
+    min_depth: 0.001
+    max_depth: 80.0
+    use_garg_crop: true
+    use_median_scaling: true
+
+# --- Résultats de référence (Table 2 du papier) ---
+reference_results:
+  DAv2_Small_official:
+    nyu:
+      absrel: 0.053
+      rmse: 0.232
+      delta1: 0.992
+    kitti:
+      absrel: 0.041
+      delta1: 0.993
+    params_M: 25
+
+  DAv2_Giant_official:
+    nyu:
+      absrel: 0.038
+      rmse: 0.179
+      delta1: 0.996
+    params_M: 1300
+
+# --- Objectifs du PFE ---
+targets:
+  minimum:                          # Note ≥ 12/20
+    absrel_nyu: 0.08                # < 0.08
+    delta1_nyu: 0.95                # > 0.95
+    gap_vs_official: 0.30           # < 30%
+
+  moyen:                            # Note ≥ 14/20
+    gap_vs_official: 0.20           # < 20%
+    benchmarks_completed: 2         # NYU + KITTI
+
+  excellence:                       # Note ≥ 16/20
+    gap_vs_official: 0.15           # < 15%
+    ablation_studies: true
+
+# --- Visualisation ---
+visualization:
+  colormap: "viridis"
+  n_best_worst: 20                  # 20 best + 20 worst cases
+  output_dir: "outputs/visualizations"
+  save_dpi: 150
+
+# --- Évaluation ---
+evaluation:
+  batch_size: 8
+  device: "cuda"
+  output_dir: "outputs/evaluation"
