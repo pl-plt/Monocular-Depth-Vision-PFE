@@ -25,6 +25,7 @@ import torch.nn as nn
 from torch.utils.data import DataLoader
 from torch.optim import AdamW
 from torch.optim.lr_scheduler import CosineAnnealingLR
+from torch.utils.tensorboard import SummaryWriter
 from typing import Optional, Dict
 from pathlib import Path
 
@@ -97,8 +98,12 @@ class Trainer:
         (self.output_dir / "checkpoints").mkdir(parents=True, exist_ok=True)
         (self.output_dir / "logs").mkdir(parents=True, exist_ok=True)
 
-        # Logger (W&B ou TensorBoard)
-        self.logger = None  # TODO: Initialiser via src.utils.logging_utils
+        # TensorBoard
+        self.writer = SummaryWriter(log_dir=str(self.output_dir / "logs"))
+        print(f"  TensorBoard logs : {self.output_dir / 'logs'}")
+
+        # Compteur global de steps pour TensorBoard
+        self.global_step = 0
 
     def train(self) -> dict:
         """
@@ -163,6 +168,9 @@ class Trainer:
                 msg += f" | Val Loss: {val_metrics['loss']:.4f}"
             print(msg)
 
+        # Fermer TensorBoard
+        self.writer.close()
+
         return {"history": self.training_history}
 
     def _train_one_epoch(self, epoch: int) -> dict:
@@ -194,13 +202,23 @@ class Trainer:
 
             total_loss += loss.item()
             n_batches += 1
+            self.global_step += 1
+
+            # TensorBoard : loss par step
+            self.writer.add_scalar("train/loss_step", loss.item(), self.global_step)
 
             # Log intermédiaire
             if (batch_idx + 1) % self.config["log_interval"] == 0:
                 avg_loss = total_loss / n_batches
                 print(f"  Batch {batch_idx+1}/{len(self.train_loader)} | Loss: {avg_loss:.4f}")
 
-        return {"loss": total_loss / max(n_batches, 1)}
+        avg_loss = total_loss / max(n_batches, 1)
+
+        # TensorBoard : loss moyenne par epoch
+        self.writer.add_scalar("train/loss_epoch", avg_loss, epoch)
+        self.writer.add_scalar("train/lr", self.scheduler.get_last_lr()[0], epoch)
+
+        return {"loss": avg_loss}
 
     @torch.no_grad()
     def _validate(self, epoch: int) -> dict:
@@ -219,7 +237,12 @@ class Trainer:
             total_loss += loss_dict["total"].item()
             n_batches += 1
 
-        return {"loss": total_loss / max(n_batches, 1)}
+        avg_loss = total_loss / max(n_batches, 1)
+
+        # TensorBoard : validation loss par epoch
+        self.writer.add_scalar("val/loss", avg_loss, epoch)
+
+        return {"loss": avg_loss}
 
     def _save_checkpoint(self, epoch: int, loss: float, is_best: bool = False):
         """Sauvegarde un checkpoint."""

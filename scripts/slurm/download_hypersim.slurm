@@ -55,6 +55,13 @@ mkdir -p outputs/slurm datasets/raw datasets/synthetic
 # Décommenter la ligne souhaitée :
 # ============================================================
 
+# --- Test rapide : 100 scènes (~40-100 GB) ---
+ python scripts/download_hypersim.py \
+     --output_dir datasets/synthetic/hypersim \
+     --raw_dir datasets/raw/hypersim \
+     --max_scenes 100 \
+     --resume
+
 # --- Test rapide : 5 scènes (~2-5 GB) ---
 # python scripts/download_hypersim.py \
 #     --output_dir datasets/synthetic/hypersim \
@@ -63,11 +70,11 @@ mkdir -p outputs/slurm datasets/raw datasets/synthetic
 #     --resume
 
 # --- Téléchargement complet (~200-300 GB, plusieurs heures) ---
-python scripts/download_hypersim.py \
-    --output_dir datasets/synthetic/hypersim \
-    --raw_dir datasets/raw/hypersim \
-    --resume \
-    --delete_raw
+# python scripts/download_hypersim.py \
+#     --output_dir datasets/synthetic/hypersim \
+#     --raw_dir datasets/raw/hypersim \
+#     --resume \
+#     --delete_raw
 
 EXIT_CODE=$?
 
