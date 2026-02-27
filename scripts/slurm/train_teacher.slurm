@@ -20,6 +20,7 @@
 #SBATCH --time=10:00:00
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
+#SBATCH --nodelist=arcadia-slurm-node-2
 
 export PYTHONUNBUFFERED=1
 
@@ -55,6 +56,17 @@ echo ">>> Dataset : synthétiques (Hypersim)"
 echo ">>> Backbone frozen, decoder trainable"
 echo ""
 
+# Auto-resume : reprendre depuis le meilleur checkpoint s'il existe
+RESUME_ARG=""
+CKPT_PATH="outputs/teacher/checkpoints/best_model.pt"
+if [ -f "$CKPT_PATH" ]; then
+    echo ">>> Checkpoint trouvé : $CKPT_PATH → reprise automatique"
+    RESUME_ARG="--resume $CKPT_PATH"
+else
+    echo ">>> Aucun checkpoint trouvé → entraînement from scratch"
+fi
+echo ""
+
 python scripts/train_teacher.py \
     --dataset_dir datasets/synthetic/hypersim \
     --output_dir outputs/teacher \
@@ -67,7 +79,8 @@ python scripts/train_teacher.py \
     --alpha_gm 0.5 \
     --top_k_masking 0.1 \
     --num_workers $SLURM_CPUS_PER_TASK \
-    --seed 42
+    --seed 42 \
+    $RESUME_ARG
 
 EXIT_CODE=$?
 

@@ -233,6 +233,67 @@ def download_sun_rgbd(output_dir: Path, raw_dir: Path, resume: bool = False) -> 
 
 
 # ============================================================
+# Depth Anything 2k
+# /!\ BENCHMARK ONLY
+# ============================================================
+
+DA_2K_URL = "https://huggingface.co/datasets/depth-anything/DA-2K/resolve/main/DA-2K.zip"
+
+def download_da_2k(output_dir: Path, raw_dir: Path, resume: bool = False) -> int:
+    """
+    Télécharge Depth Anything 2k et extrait les images RGB.
+    Contient ~2,000 images d'intérieurs variés.
+    """
+    zip_path = raw_dir / "DA-2K.zip"
+    extract_dir = raw_dir / "DA-2K"
+    images_dir = output_dir / "images"
+    images_dir.mkdir(parents=True, exist_ok=True)
+
+    # 1. Télécharger le ZIP (~1.5 GB)
+    print("\n--- DA-2K : Téléchargement ---", flush=True)
+    print(f"  URL  : {DA_2K_URL}", flush=True)
+    print(f"  Dest : {zip_path} (~1.5 GB)", flush=True)
+
+    if not download_file(DA_2K_URL, zip_path, resume=resume):
+        print("  ✗ Échec du téléchargement DA-2K", flush=True)
+        return 0
+
+    # 2. Extraire
+    if not extract_dir.exists():
+        print("\n--- DA-2K : Extraction ---", flush=True)
+        try:
+            with zipfile.ZipFile(zip_path, "r") as zf:
+                zf.extractall(raw_dir)
+        except Exception as e:
+            print(f"  ⚠ Erreur extraction : {e}", flush=True)
+            return 0
+
+    # 3. Trouver et copier les images RGB
+    print("\n--- DA-2K : Copie des images RGB ---", flush=True)
+    extensions = {".jpg", ".jpeg", ".png"}
+    count = 0
+
+    # Structure DA-2K : DA-2K/.../image/
+    for img_path in tqdm(
+        list(extract_dir.rglob("image/*")),
+        desc="Copie DA-2K"
+    ):
+        if img_path.suffix.lower() in extensions and img_path.is_file():
+            dest = images_dir / f"da_2k_{count:06d}{img_path.suffix}"
+            if not dest.exists():
+                try:
+                    # Copier et vérifier
+                    img = Image.open(img_path).convert("RGB")
+                    img.save(dest)
+                except Exception:
+                    continue
+            count += 1
+
+    print(f"  ✓ {count} images copiées", flush=True)
+    return count
+
+
+# ============================================================
 # Main
 # ============================================================
 
@@ -241,7 +302,7 @@ def parse_args():
         description="Télécharger des images réelles d'intérieurs"
     )
     parser.add_argument("--dataset", type=str, default="nyu",
-                        choices=["nyu", "sun", "all"],
+                        choices=["nyu", "sun", "da_2k", "all"],
                         help="Dataset à télécharger")
     parser.add_argument("--output_dir", type=str,
                         default="datasets/real_unlabeled/indoor",
@@ -278,6 +339,10 @@ def main():
 
     if args.dataset in ("sun", "all"):
         n = download_sun_rgbd(output_dir, raw_dir, resume=args.resume)
+        total += n
+
+    if args.dataset in ("da_2k", "all"):
+        n = download_da_2k(output_dir, raw_dir, resume=args.resume)
         total += n
 
     # Compter le résultat final

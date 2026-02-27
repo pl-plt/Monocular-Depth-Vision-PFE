@@ -47,11 +47,12 @@ mkdir -p outputs/slurm datasets/raw datasets/real_unlabeled
 # Choix du dataset :
 #   nyu  → 1,449 images indoor (~2.8 GB download)   [rapide]
 #   sun  → ~10,335 images indoor (~7 GB download)    [moyen]
-#   all  → NYU + SUN (~10 GB download)               [recommandé]
+#   da_2k → ~2,000 images indoor (~1.5 GB download)   [recommandé]
+#   all  → NYU + SUN + DA-2K (~11.5 GB download)      [complet]
 # ============================================================
 
 python scripts/download_indoor_images.py \
-    --dataset nyu \
+    --dataset da_2k \
     --output_dir datasets/real_unlabeled/indoor \
     --raw_dir datasets/raw/indoor \
     --resume

@@ -79,12 +79,19 @@ class PseudoLabelGenerator:
         device: str = "cuda",
         output_dir: str = "outputs/pseudo_labels",
         save_format: str = "npy",
+        use_half: bool = False,
     ):
         self.teacher = teacher
         self.device = device
         self.output_dir = Path(output_dir)
         self.save_format = save_format
+        self.use_half = use_half
         self.output_dir.mkdir(parents=True, exist_ok=True)
+
+        # Convertir le modèle en fp16 si demandé (économise ~50% VRAM)
+        if self.use_half and self.device != "cpu":
+            self.teacher = self.teacher.half()
+            print("  ⚡ Mode fp16 activé (économie VRAM)")
 
     @torch.no_grad()
     def generate(
@@ -115,16 +122,37 @@ class PseudoLabelGenerator:
         self.teacher.eval()
         start_time = time.time()
         n_generated = 0
+        n_skipped = 0
 
         print(f"Génération de pseudo-labels pour {len(dataset)} images...")
         print(f"  Batch size : {batch_size}")
         print(f"  Sortie : {self.output_dir}")
+        print(f"  Resume : skip les pseudo-labels existants")
 
         for batch in tqdm(dataloader, desc="Pseudo-labels"):
             images = batch["image"].to(self.device)
+            if self.use_half:
+                images = images.half()
             paths = batch["path"]
 
-            # Prédiction du Teacher
+            # Skip les images dont le pseudo-label existe déjà (resume)
+            to_process = []
+            for i, path in enumerate(paths):
+                stem = Path(path).stem
+                out_path = self.output_dir / f"{stem}.{self.save_format}"
+                if not out_path.exists():
+                    to_process.append(i)
+                else:
+                    n_skipped += 1
+
+            if not to_process:
+                continue
+
+            # Prédiction du Teacher (seulement les images non traitées)
+            if len(to_process) < len(paths):
+                images = images[to_process]
+                paths = [paths[j] for j in to_process]
+
             depth_maps = self.teacher(images)  # [B, 1, H, W]
 
             # Sauvegarder chaque pseudo-label
@@ -137,8 +165,9 @@ class PseudoLabelGenerator:
 
         elapsed = time.time() - start_time
         print(f"\nGénération terminée :")
-        print(f"  {n_generated} pseudo-labels en {elapsed:.1f}s")
-        print(f"  Vitesse : {n_generated/elapsed:.1f} images/sec")
+        print(f"  {n_generated} pseudo-labels générés en {elapsed:.1f}s")
+        print(f"  {n_skipped} pseudo-labels déjà existants (skippés)")
+        print(f"  Vitesse : {n_generated/max(elapsed,1):.1f} images/sec")
         print(f"  Sauvegardés dans : {self.output_dir}")
 
     def _save_pseudo_label(self, depth: np.ndarray, stem: str):

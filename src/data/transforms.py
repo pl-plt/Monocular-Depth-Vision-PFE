@@ -142,8 +142,11 @@ class EvalTransform(PairedTransform):
         return image, depth
 
 
-def get_train_transforms(image_size: int = 518, crop_size: int = 480) -> TrainTransform:
-    """Factory pour les transformations d'entraînement."""
+def get_train_transforms(image_size: int = 518, crop_size: int = 490) -> TrainTransform:
+    """Factory pour les transformations d'entraînement.
+    
+    Note: crop_size doit être un multiple de 14 (taille des patches DINOv2).
+    """
     return TrainTransform(image_size=image_size, crop_size=crop_size)
 
 

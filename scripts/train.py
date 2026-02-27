@@ -181,6 +181,7 @@ def main():
 
     # Reprise depuis checkpoint
     if args.resume:
+        print(f"\n--- Reprise depuis checkpoint : {args.resume} ---")
         trainer.resume_from_checkpoint(args.resume)
 
     # 6. Entraînement

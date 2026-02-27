@@ -51,6 +51,8 @@ def parse_args():
                         help="Workers pour le DataLoader")
     parser.add_argument("--quality_check", action="store_true",
                         help="Lancer un quality check après génération")
+    parser.add_argument("--half", action="store_true",
+                        help="Inférence en fp16 (réduit la VRAM de ~50%%)")
     return parser.parse_args()
 
 
@@ -75,6 +77,7 @@ def main():
         device=str(device),
         output_dir=args.output_dir,
         save_format=args.save_format,
+        use_half=args.half,
     )
 
     # 3. Générer

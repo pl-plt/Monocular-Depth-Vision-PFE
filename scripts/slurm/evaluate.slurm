@@ -13,6 +13,7 @@
 #SBATCH --time=02:00:00                     # Évaluation rapide
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
+#SBATCH --nodelist=arcadia-slurm-node-2
 
 PROJECT_DIR="${SLURM_SUBMIT_DIR:-$(dirname $(dirname $(realpath $0)))}"
 cd "$PROJECT_DIR"

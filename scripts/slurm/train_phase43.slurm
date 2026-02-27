@@ -16,6 +16,7 @@
 #SBATCH --time=10:00:00
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
+#SBATCH --nodelist=arcadia-slurm-node-2
 #SBATCH --mail-type=BEGIN,END,FAIL
 #SBATCH --mail-user=ton.email@universite.fr
 

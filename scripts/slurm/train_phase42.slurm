@@ -18,8 +18,9 @@
 #SBATCH --time=10:00:00
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
+#SBATCH --nodelist=arcadia-slurm-node-4
 #SBATCH --mail-type=BEGIN,END,FAIL          # Notifications par mail
-#SBATCH --mail-user=ton.email@universite.fr # <-- MODIFIER
+#SBATCH --mail-user=pierlouis.pillet@telecom-sudparis.eu # <-- MODIFIER
 
 export PYTHONUNBUFFERED=1
 
@@ -62,7 +63,7 @@ mkdir -p outputs/logs
 # Lancement
 # ====================
 echo ""
-echo ">>> Lancement entraînement Phase 4.2 (50k images, 20 epochs)"
+echo ">>> Lancement entraînement Phase 4.2"
 echo ""
 
 python scripts/train.py \
@@ -70,7 +71,7 @@ python scripts/train.py \
     --pseudo_labels_dir outputs/pseudo_labels \
     --output_dir outputs \
     --epochs 20 \
-    --batch_size 16 \
+    --batch_size 64 \
     --lr 1e-4 \
     --weight_decay 0.01 \
     --gradient_clip 1.0 \
@@ -78,7 +79,8 @@ python scripts/train.py \
     --alpha_gm 0.5 \
     --top_k_masking 0.1 \
     --num_workers $SLURM_CPUS_PER_TASK \
-    --seed 42
+    --seed 42 \
+    --resume outputs/checkpoints/best_model.pt # <-- Reprendre depuis le meilleur checkpoint (optionnel)
 
 EXIT_CODE=$?
 
