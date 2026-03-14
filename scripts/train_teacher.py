@@ -51,7 +51,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from src.models.teacher import TeacherModel
 from src.losses.gradient_matching import DepthAnythingLoss
-from src.data.datasets import SyntheticDepthDataset
+from src.data.datasets import SyntheticDepthDataset, CombinedSyntheticDataset
 from src.data.transforms import TrainTransform, EvalTransform
 from src.training.trainer import Trainer
 from src.utils.helpers import get_device, set_seed
@@ -63,8 +63,11 @@ def parse_args():
     )
 
     # Données
-    parser.add_argument("--dataset_dir", type=str, required=True,
-                        help="Répertoire du dataset synthétique (ex: datasets/synthetic/hypersim)")
+    parser.add_argument("--dataset_dir", type=str, default=None,
+                        help="Répertoire d'un seul dataset synthétique (rétrocompat.)")
+    parser.add_argument("--dataset_dirs", type=str, nargs="+", default=None,
+                        help="Un ou plusieurs répertoires de datasets synthétiques "
+                             "(ex: datasets/synthetic/hypersim datasets/synthetic/vkitti2)")
     parser.add_argument("--val_ratio", type=float, default=0.1,
                         help="Proportion de données pour la validation (défaut: 10%%)")
     parser.add_argument("--max_samples", type=int, default=None,
@@ -151,15 +154,39 @@ def main():
     )
 
     # ----- 3. Dataset synthétique -----
-    print("\n--- Chargement des données synthétiques ---")
+    print("\n--- Chargement des données synthétiques ---", flush=True)
     train_transform = TrainTransform(image_size=args.image_size)
     eval_transform = EvalTransform(image_size=args.image_size)
 
-    full_dataset = SyntheticDepthDataset(
-        root=args.dataset_dir,
-        transform=train_transform,
-        max_samples=args.max_samples,
-    )
+    # Résoudre la liste de répertoires (--dataset_dirs a priorité sur --dataset_dir)
+    if args.dataset_dirs:
+        roots = args.dataset_dirs
+    elif args.dataset_dir:
+        roots = [args.dataset_dir]
+    else:
+        print("ERREUR : spécifier --dataset_dir ou --dataset_dirs", flush=True)
+        sys.exit(1)
+
+    missing = [r for r in roots if not Path(r).exists()]
+    if missing:
+        print(f"  ⚠ Répertoires introuvables : {missing}", flush=True)
+        roots = [r for r in roots if Path(r).exists()]
+        if not roots:
+            print("  ✗ Aucun dataset disponible. Abandon.", flush=True)
+            sys.exit(1)
+
+    if len(roots) == 1:
+        full_dataset = SyntheticDepthDataset(
+            root=roots[0],
+            transform=train_transform,
+            max_samples=args.max_samples,
+        )
+    else:
+        full_dataset = CombinedSyntheticDataset(
+            roots=roots,
+            transform=train_transform,
+            max_samples_per_dataset=args.max_samples,
+        )
 
     # Split train/val
     n_val = max(1, int(len(full_dataset) * args.val_ratio))
@@ -169,7 +196,7 @@ def main():
         generator=torch.Generator().manual_seed(args.seed),
     )
 
-    print(f"  Dataset    : {args.dataset_dir}")
+    print(f"  Datasets   : {roots}")
     print(f"  Total      : {len(full_dataset)} images")
     print(f"  Train      : {n_train} images")
     print(f"  Val        : {n_val} images")

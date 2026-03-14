@@ -9,14 +9,14 @@
 #SBATCH --job-name=dav2-pseudo
 #SBATCH --output=outputs/slurm/pseudo_labels_%j.out
 #SBATCH --error=outputs/slurm/pseudo_labels_%j.out
-#SBATCH --partition=normal
+#SBATCH --partition=preemptable
 #SBATCH --gres=gpu:1
 #SBATCH --cpus-per-task=4
 #SBATCH --mem=32G
 #SBATCH --time=10:00:00
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --nodelist=arcadia-slurm-node-2
+#SBATCH --nodelist=arcadia-slurm-node-4
 #SBATCH --mail-type=BEGIN,END,FAIL
 #SBATCH --mail-user=ton.email@universite.fr
 
@@ -87,9 +87,9 @@ echo ">>> Images : NYU ($NYU_COUNT) + SA-1B ($SA1B_COUNT) = $TOTAL"
 echo ""
 
 python scripts/generate_pseudo_labels.py \
-    --teacher_weights outputs/teacher/checkpoints/best_model.pt \
+    --teacher_weights outputs/teacher_v2/checkpoints/best_model.pt \
     --images_dir "$COMBINED_DIR" \
-    --output_dir outputs/pseudo_labels \
+    --output_dir outputs/pseudo_labels_v2 \
     --batch_size 2 \
     --half \
     --num_workers $SLURM_CPUS_PER_TASK

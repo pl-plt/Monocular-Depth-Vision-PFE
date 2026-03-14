@@ -19,8 +19,8 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --nodelist=arcadia-slurm-node-4
-#SBATCH --mail-type=BEGIN,END,FAIL          # Notifications par mail
-#SBATCH --mail-user=pierlouis.pillet@telecom-sudparis.eu # <-- MODIFIER
+#SBATCH --mail-type=END,FAIL          # Notifications par mail
+#SBATCH --mail-user=ton.email@universite.fr
 
 export PYTHONUNBUFFERED=1
 
@@ -56,8 +56,8 @@ if torch.cuda.is_available():
 
 # Créer les dossiers de sortie
 mkdir -p outputs/slurm
-mkdir -p outputs/checkpoints
-mkdir -p outputs/logs
+mkdir -p outputs/v2/checkpoints
+mkdir -p outputs/v2/logs
 
 # ====================
 # Lancement
@@ -68,9 +68,9 @@ echo ""
 
 python scripts/train.py \
     --images_dir datasets/real_unlabeled/sa1b/images \
-    --pseudo_labels_dir outputs/pseudo_labels \
-    --output_dir outputs \
-    --epochs 20 \
+    --pseudo_labels_dir outputs/pseudo_labels_v2 \
+    --output_dir outputs/v2/ \
+    --epochs 30 \
     --batch_size 64 \
     --lr 1e-4 \
     --weight_decay 0.01 \
@@ -80,7 +80,7 @@ python scripts/train.py \
     --top_k_masking 0.1 \
     --num_workers $SLURM_CPUS_PER_TASK \
     --seed 42 \
-    --resume outputs/checkpoints/best_model.pt # <-- Reprendre depuis le meilleur checkpoint (optionnel)
+    --resume outputs/v2/checkpoints/best_model.pt # <-- Reprendre depuis le meilleur checkpoint (optionnel)
 
 EXIT_CODE=$?
 

@@ -47,11 +47,16 @@
     },
     "benchmarks": {
       "nyu_depth_v2_test": {
-        "source": "https://cs.nyu.edu/~silberman/datasets/nyu_depth_v2.html",
-        "description": "Test set NYU-Depth V2 (indoor, 654 images)",
+        "source": "http://horatio.cs.nyu.edu/mit/silberman/nyu_depth_v2/nyu_depth_v2_labeled.mat",
+        "description": "Test set NYU-Depth V2 Eigen split (indoor, 654 images, indices 795–1448)",
+        "local_path": "datasets/real_depth/nyudepthv2",
+        "script": "scripts/download_nyu_test.py",
+        "slurm": "scripts/slurm/download_nyu_test.slurm",
         "n_images": 654,
         "resolution": "640x480",
         "depth_range_m": [0.001, 10.0],
+        "depth_format": "float32 .npy (mètres)",
+        "contamination_risk": "aucun — indices 795–1448 jamais vus à l'entraînement",
         "download_date": null
       },
       "kitti_eigen_test": {

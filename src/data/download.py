@@ -91,19 +91,42 @@ def download_sa1b_subset(
     )
 
 
-def download_nyu_depth_v2_test(output_dir: str):
+def download_nyu_depth_v2_test(
+    output_dir: str,
+    raw_dir: str = "datasets/raw/nyudepthv2",
+    resume: bool = True,
+):
     """
-    Télécharge le test set NYU-Depth V2 (654 images, indoor).
+    Télécharge/extrait le test set NYU-Depth V2 (654 images, indoor).
 
-    Utilisé pour l'évaluation (Phase 0 baseline + Phase 5).
+    Eigen split : indices 795–1448 du fichier nyu_depth_v2_labeled.mat.
+    Réutilise datasets/raw/indoor/nyu_depth_v2_labeled.mat si déjà présent.
+
+    Sortie :
+        output_dir/images/  → 654 PNG RGB
+        output_dir/depth/   → 654 .npy float32 (mètres)
 
     Args:
         output_dir: Répertoire de destination.
+        raw_dir: Répertoire pour le .mat brut.
+        resume: Reprendre un téléchargement interrompu.
     """
-    # TODO: Implémenter le téléchargement NYU-D test set
-    raise NotImplementedError(
-        "Implémenter le téléchargement NYU-Depth V2 test set."
-    )
+    import subprocess
+    import sys
+
+    # Déléguer au script dédié qui gère toute la logique d'extraction
+    script = Path(__file__).parent.parent.parent / "scripts" / "download_nyu_test.py"
+    cmd = [
+        sys.executable, str(script),
+        "--output_dir", output_dir,
+        "--raw_dir", raw_dir,
+    ]
+    if resume:
+        cmd.append("--resume")
+
+    result = subprocess.run(cmd, check=False)
+    if result.returncode != 0:
+        raise RuntimeError(f"download_nyu_test.py a échoué (code {result.returncode})")
 
 
 def download_kitti_test(output_dir: str):

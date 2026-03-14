@@ -20,7 +20,7 @@
 #SBATCH --time=10:00:00
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --nodelist=arcadia-slurm-node-2
+#SBATCH --nodelist=arcadia-slurm-node-4
 
 export PYTHONUNBUFFERED=1
 
@@ -48,17 +48,23 @@ if torch.cuda.is_available():
     print(f'VRAM          : {torch.cuda.get_device_properties(0).total_memory / 1e9:.1f} GB')
 "
 
-mkdir -p outputs/slurm outputs/teacher/checkpoints outputs/teacher/logs
+mkdir -p outputs/slurm outputs/teacher_v2/checkpoints outputs/teacher_v2/logs
 
 echo ""
-echo ">>> Entraînement Teacher (DINOv2-Giant + DPT decoder)"
-echo ">>> Dataset : synthétiques (Hypersim)"
+echo ">>> Entraînement Teacher v2 (DINOv2-Giant + DPT decoder)"
+echo ">>> Datasets : Hypersim (indoor) + Virtual KITTI 2 (outdoor)"
 echo ">>> Backbone frozen, decoder trainable"
+echo ""
+
+# Vérifier les datasets disponibles
+echo "Datasets synthétiques :"
+echo "  Hypersim : $(find datasets/synthetic/hypersim/images -name '*.png' 2>/dev/null | wc -l) images"
+echo "  VKitti2  : $(find datasets/synthetic/vkitti2/images -name '*.jpg' 2>/dev/null | wc -l) images"
 echo ""
 
 # Auto-resume : reprendre depuis le meilleur checkpoint s'il existe
 RESUME_ARG=""
-CKPT_PATH="outputs/teacher/checkpoints/best_model.pt"
+CKPT_PATH="outputs/teacher_v2/checkpoints/best_model.pt"
 if [ -f "$CKPT_PATH" ]; then
     echo ">>> Checkpoint trouvé : $CKPT_PATH → reprise automatique"
     RESUME_ARG="--resume $CKPT_PATH"
@@ -68,10 +74,10 @@ fi
 echo ""
 
 python scripts/train_teacher.py \
-    --dataset_dir datasets/synthetic/hypersim \
-    --output_dir outputs/teacher \
-    --epochs 25 \
-    --batch_size 4 \
+    --dataset_dirs datasets/synthetic/hypersim datasets/synthetic/vkitti2 \
+    --output_dir outputs/teacher_v2 \
+    --epochs 30 \
+    --batch_size 16 \
     --lr 1e-4 \
     --weight_decay 0.01 \
     --gradient_clip 1.0 \

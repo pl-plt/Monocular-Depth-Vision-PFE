@@ -212,6 +212,71 @@ class PseudoLabeledDataset(Dataset):
         }
 
 
+class CombinedSyntheticDataset(Dataset):
+    """
+    Combine plusieurs SyntheticDepthDataset en un seul objet.
+
+    Utilisé pour entraîner le Teacher sur Hypersim + Virtual KITTI 2
+    simultanément (Section A du papier : 595K images synthétiques).
+
+    Exemple :
+        dataset = CombinedSyntheticDataset(
+            roots=["datasets/synthetic/hypersim",
+                   "datasets/synthetic/vkitti2"],
+            transform=train_transform,
+        )
+
+    Args:
+        roots: Liste de répertoires racines (chacun avec images/ + depth/).
+        transform: Transformation commune appliquée à chaque dataset.
+        max_samples_per_dataset: Limite par dataset (None = tout).
+    """
+
+    def __init__(
+        self,
+        roots: list,
+        transform: Optional[Callable] = None,
+        max_samples_per_dataset: Optional[int] = None,
+    ):
+        self.datasets = [
+            SyntheticDepthDataset(
+                root=root,
+                transform=transform,
+                max_samples=max_samples_per_dataset,
+            )
+            for root in roots
+            if Path(root).exists()
+        ]
+
+        if not self.datasets:
+            raise ValueError(
+                f"Aucun dataset trouvé dans : {roots}\n"
+                "Vérifier que les dossiers images/ et depth/ sont présents."
+            )
+
+        # Table d'index global → (dataset_idx, sample_idx)
+        self._index_map: list = []
+        for ds_idx, ds in enumerate(self.datasets):
+            for s_idx in range(len(ds)):
+                self._index_map.append((ds_idx, s_idx))
+
+        # Résumé
+        sizes = [(Path(r).name, len(ds))
+                 for r, ds in zip(roots, self.datasets)
+                 if Path(r).exists()]
+        print("CombinedSyntheticDataset :")
+        for name, n in sizes:
+            print(f"  {name:<20} : {n:>7} images")
+        print(f"  {'TOTAL':<20} : {len(self._index_map):>7} images")
+
+    def __len__(self) -> int:
+        return len(self._index_map)
+
+    def __getitem__(self, idx: int) -> dict:
+        ds_idx, s_idx = self._index_map[idx]
+        return self.datasets[ds_idx][s_idx]
+
+
 class EvaluationDataset(Dataset):
     """
     Dataset d'évaluation avec ground truth (NYU-Depth V2, KITTI).

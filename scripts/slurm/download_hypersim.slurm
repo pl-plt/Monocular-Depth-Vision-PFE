@@ -14,7 +14,7 @@
 # Logs :         tail -f outputs/slurm/download_hypersim_<JOB_ID>.out
 #
 # Pour un test rapide (5 scènes) :
-#   Modifier --max_scenes 5 ci-dessous
+#   Décommenter la ligne "Test rapide" dans le script ci-dessous
 # ============================================================
 
 #SBATCH --job-name=dav2-download
@@ -55,12 +55,13 @@ mkdir -p outputs/slurm datasets/raw datasets/synthetic
 # Décommenter la ligne souhaitée :
 # ============================================================
 
-# --- Test rapide : 100 scènes (~40-100 GB) ---
- python scripts/download_hypersim.py \
-     --output_dir datasets/synthetic/hypersim \
-     --raw_dir datasets/raw/hypersim \
-     --max_scenes 100 \
-     --resume
+# --- Téléchargement complet : toutes scènes (~200-300 GB brut, ~50-80 GB final) ---
+# Les 49 scènes déjà téléchargées seront automatiquement ignorées (--resume).
+python scripts/download_hypersim.py \
+    --output_dir datasets/synthetic/hypersim \
+    --raw_dir datasets/raw/hypersim \
+    --resume \
+    --delete_raw
 
 # --- Test rapide : 5 scènes (~2-5 GB) ---
 # python scripts/download_hypersim.py \
@@ -68,13 +69,6 @@ mkdir -p outputs/slurm datasets/raw datasets/synthetic
 #     --raw_dir datasets/raw/hypersim \
 #     --max_scenes 5 \
 #     --resume
-
-# --- Téléchargement complet (~200-300 GB, plusieurs heures) ---
-# python scripts/download_hypersim.py \
-#     --output_dir datasets/synthetic/hypersim \
-#     --raw_dir datasets/raw/hypersim \
-#     --resume \
-#     --delete_raw
 
 EXIT_CODE=$?
 
