@@ -64,7 +64,7 @@ benchmarks:
 # --- Preprocessing ---
 preprocessing:
   image_size: 518                 # Resize (doit être multiple de 14 pour ViT)
-  crop_size: 480                  # Random crop pendant l'entraînement
+  crop_size: 490                  # Random crop (multiple de 14 : 490 = 35×14)
   normalize:
     mean: [0.485, 0.456, 0.406]   # ImageNet
     std: [0.229, 0.224, 0.225]
