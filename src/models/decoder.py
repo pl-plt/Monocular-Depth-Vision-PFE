@@ -168,11 +168,13 @@ class DPTDecoder(nn.Module):
         for i, (block, feat) in enumerate(zip(self.reassemble_blocks, features)):
             reassembled.append(block(feat))
 
-        # Étape 2 : Fusion progressive (bottom-up)
-        # On part du niveau le plus profond (index 0)
-        fused = self.fusion_blocks[0](reassembled[0])
-        for i in range(1, len(self.fusion_blocks)):
-            fused = self.fusion_blocks[i](fused, reassembled[i])
+        # Étape 2 : Fusion progressive bottom-up
+        # Partir du niveau le plus profond (index 3, résolution ~18×18)
+        # et remonter vers le niveau le plus superficiel (index 0, résolution ~148×148)
+        fused = self.fusion_blocks[0](reassembled[3])
+        fused = self.fusion_blocks[1](fused, reassembled[2])
+        fused = self.fusion_blocks[2](fused, reassembled[1])
+        fused = self.fusion_blocks[3](fused, reassembled[0])
 
         # Étape 3 : Head — prédiction depth
         depth = self.head(fused)

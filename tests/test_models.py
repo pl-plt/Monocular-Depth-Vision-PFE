@@ -88,3 +88,29 @@ class TestDPTDecoder:
         features = [torch.randn(1, 384, 37, 37) for _ in range(4)]
         out = decoder(features, target_size=(480, 640))
         assert out.shape == (1, 1, 480, 640)
+
+    def test_fusion_is_bottom_up(self):
+        """
+        Vérifie que la fusion DPT est bien bottom-up (deepest → shallowest).
+        On injecte un signal distinctif uniquement dans le niveau le plus profond
+        (reassembled[3], scale 0.5). En fusion bottom-up correcte, ce signal
+        se propage et influence fortement la sortie finale.
+        """
+        torch.manual_seed(42)
+        decoder = DPTDecoder(input_dim=384, hidden_dim=64, image_size=518)
+
+        base_features = [torch.zeros(1, 384, 37, 37) for _ in range(4)]
+
+        feats_a = [f.clone() for f in base_features]
+        out_a = decoder(feats_a)
+
+        feats_b = [f.clone() for f in base_features]
+        feats_b[3] = torch.ones(1, 384, 37, 37)
+        out_b = decoder(feats_b)
+
+        diff = (out_b - out_a).abs().mean().item()
+        assert diff > 0.25, (
+            f"La fusion semble inversée : le niveau deepest (index 3) "
+            f"n'influence presque pas la sortie (diff={diff:.4f}). "
+            f"La fusion doit être bottom-up (partir de reassembled[3])."
+        )
