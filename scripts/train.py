@@ -125,20 +125,38 @@ def main():
     train_transform = get_train_transforms(image_size=args.image_size)
     eval_transform = get_eval_transforms(image_size=args.image_size)
 
-    full_dataset = PseudoLabeledDataset(
+    # Déterminer les indices (utiliser eval_transform pour compter seulement)
+    index_dataset = PseudoLabeledDataset(
+        image_dir=args.images_dir,
+        pseudo_label_dir=args.pseudo_labels_dir,
+        transform=eval_transform,
+        max_samples=args.max_samples,
+    )
+    n_total = len(index_dataset)
+    n_val = max(1, int(n_total * 0.1))
+    n_train = n_total - n_val
+
+    rng = torch.Generator().manual_seed(args.seed)
+    indices = torch.randperm(n_total, generator=rng).tolist()
+    train_indices, val_indices = indices[:n_train], indices[n_train:]
+
+    # Dataset train avec augmentations
+    full_train_dataset = PseudoLabeledDataset(
         image_dir=args.images_dir,
         pseudo_label_dir=args.pseudo_labels_dir,
         transform=train_transform,
         max_samples=args.max_samples,
     )
+    train_dataset = torch.utils.data.Subset(full_train_dataset, train_indices)
 
-    # Split train/val (90/10)
-    n_val = max(1, int(len(full_dataset) * 0.1))
-    n_train = len(full_dataset) - n_val
-    train_dataset, val_dataset = torch.utils.data.random_split(
-        full_dataset, [n_train, n_val],
-        generator=torch.Generator().manual_seed(args.seed),
+    # Dataset val sans augmentations
+    full_val_dataset = PseudoLabeledDataset(
+        image_dir=args.images_dir,
+        pseudo_label_dir=args.pseudo_labels_dir,
+        transform=eval_transform,
+        max_samples=args.max_samples,
     )
+    val_dataset = torch.utils.data.Subset(full_val_dataset, val_indices)
 
     print(f"  Train : {n_train} images")
     print(f"  Val   : {n_val} images")
