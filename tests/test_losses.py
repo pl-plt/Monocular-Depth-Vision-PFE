@@ -103,6 +103,25 @@ class TestGradientMatchingLoss:
         loss.backward()
         assert pred.grad is not None
 
+    def test_scale_invariance(self):
+        """
+        L_gm en log-space doit être (quasi) invariante à un facteur d'échelle global.
+        log(k*pred) - log(k*gt) = log(pred) - log(gt) → gradients identiques.
+        """
+        loss_fn = GradientMatchingLoss()
+        torch.manual_seed(0)
+        pred = torch.rand(2, 1, 32, 32) + 0.1
+        gt = torch.rand(2, 1, 32, 32) + 0.1
+        mask = torch.ones(2, 1, 32, 32)
+
+        loss_a = loss_fn(pred, gt, mask).item()
+        loss_b = loss_fn(pred * 10, gt * 10, mask).item()
+
+        assert abs(loss_a - loss_b) < 1e-3, (
+            f"L_gm n'est pas scale-invariante : loss_a={loss_a:.4f}, loss_b={loss_b:.4f}. "
+            f"Les gradients doivent être calculés en log-space."
+        )
+
 
 class TestDepthAnythingLoss:
     """Tests de la perte combinée."""

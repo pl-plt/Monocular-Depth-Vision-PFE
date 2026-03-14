@@ -87,13 +87,13 @@ class GradientMatchingLoss(nn.Module):
         Returns:
             Loss scalaire.
         """
-        # Gradients de la prédiction
-        pred_gx, pred_gy = self._compute_gradients(prediction)
+        # Log-space pour invariance à l'échelle (cohérent avec L_ssi)
+        log_pred = torch.log(prediction.clamp(min=self.eps))
+        log_tgt = torch.log(target.clamp(min=self.eps))
 
-        # Gradients de la target
-        tgt_gx, tgt_gy = self._compute_gradients(target)
+        pred_gx, pred_gy = self._compute_gradients(log_pred)
+        tgt_gx, tgt_gy = self._compute_gradients(log_tgt)
 
-        # Distance L1 entre gradients
         diff_x = (pred_gx - tgt_gx).abs()
         diff_y = (pred_gy - tgt_gy).abs()
 
@@ -104,8 +104,7 @@ class GradientMatchingLoss(nn.Module):
         else:
             n = prediction.numel()
 
-        loss = (diff_x.sum() + diff_y.sum()) / n
-        return loss
+        return (diff_x.sum() + diff_y.sum()) / n
 
 
 class DepthAnythingLoss(nn.Module):
