@@ -22,6 +22,7 @@ import os
 import time
 import torch
 import torch.nn as nn
+from torch.cuda.amp import GradScaler
 from torch.utils.data import DataLoader
 from torch.optim import AdamW
 from torch.optim.lr_scheduler import CosineAnnealingLR
@@ -71,9 +72,14 @@ class Trainer:
             "checkpoint_interval": 2,       # Sauvegarder tous les N epochs
             "early_stopping_patience": 5,   # Arrêter si val loss stagne
             "log_interval": 50,             # Logger tous les N batches
+            "use_amp": False,               # Mixed precision (torch.autocast)
         }
         if config:
             self.config.update(config)
+
+        # AMP : activé uniquement sur GPU
+        self.use_amp = self.config["use_amp"] and (device != "cpu") and torch.cuda.is_available()
+        self.scaler = GradScaler(enabled=self.use_amp)
 
         # Optimiseur
         self.optimizer = AdamW(
@@ -118,6 +124,7 @@ class Trainer:
         print(f"  LR : {self.config['learning_rate']}")
         print(f"  Device : {self.device}")
         print(f"  Paramètres : {sum(p.numel() for p in self.model.parameters() if p.requires_grad)/1e6:.1f}M")
+        print(f"  AMP           : {'activé' if self.use_amp else 'désactivé'}")
         print(f"{'='*60}")
 
         for epoch in range(self.current_epoch, self.config["epochs"]):
@@ -183,22 +190,25 @@ class Trainer:
             images = batch["image"].to(self.device)
             targets = batch.get("pseudo_depth", batch.get("depth")).to(self.device)
 
-            # Forward
-            predictions = self.model(images)
-            loss_dict = self.criterion(predictions, targets)
-            loss = loss_dict["total"]
-
-            # Backward
+            # Forward (avec autocast si AMP activé)
             self.optimizer.zero_grad()
-            loss.backward()
+            with torch.autocast(device_type="cuda", enabled=self.use_amp):
+                predictions = self.model(images)
+                loss_dict = self.criterion(predictions, targets)
+                loss = loss_dict["total"]
 
-            # Gradient clipping
+            # Backward avec GradScaler
+            self.scaler.scale(loss).backward()
+
+            # Gradient clipping (après unscale pour avoir la vraie norme)
+            self.scaler.unscale_(self.optimizer)
             torch.nn.utils.clip_grad_norm_(
                 self.model.parameters(),
                 self.config["gradient_clip_max_norm"],
             )
 
-            self.optimizer.step()
+            self.scaler.step(self.optimizer)
+            self.scaler.update()
 
             total_loss += loss.item()
             n_batches += 1
@@ -227,6 +237,8 @@ class Trainer:
         total_loss = 0.0
         n_batches = 0
 
+        print(f"  Validation... ({len(self.val_loader)} batches)", flush=True)
+        
         for batch in self.val_loader:
             images = batch["image"].to(self.device)
             targets = batch.get("pseudo_depth", batch.get("depth")).to(self.device)
@@ -254,7 +266,12 @@ class Trainer:
             "loss": loss,
             "config": self.config,
             "training_history": self.training_history,
+            "best_val_loss": self.best_val_loss,
+            "epochs_without_improvement": self.epochs_without_improvement,
+            "global_step": self.global_step,
         }
+        if self.use_amp:
+            checkpoint["scaler_state_dict"] = self.scaler.state_dict()
 
         # Checkpoint régulier
         path = self.output_dir / "checkpoints" / f"checkpoint_epoch_{epoch+1:03d}.pt"
@@ -271,7 +288,24 @@ class Trainer:
         checkpoint = torch.load(checkpoint_path, map_location=self.device)
         self.model.load_state_dict(checkpoint["model_state_dict"])
         self.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
-        self.scheduler.load_state_dict(checkpoint["scheduler_state_dict"])
+        # Ne pas restaurer scheduler.state_dict() : cela écraserait T_max du nouveau run
+        # par la valeur sauvegardée, rendant les epochs supplémentaires inutiles (LR ≈ 0).
+        # On avance le scheduler à la bonne position dans le nouveau cycle.
         self.current_epoch = checkpoint["epoch"] + 1
         self.training_history = checkpoint.get("training_history", [])
-        print(f"Reprise depuis l'epoch {self.current_epoch}")
+        self.best_val_loss = checkpoint.get("best_val_loss", self.best_val_loss)
+        self.epochs_without_improvement = checkpoint.get("epochs_without_improvement", 0)
+        self.global_step = checkpoint.get("global_step", 0)
+        # CosineAnnealingLR utilise une formule RÉCURSIVE : lr_t dépend de lr_{t-1}
+        # via group['lr']. Si le checkpoint a lr=0 (fin de l'ancien cycle), la
+        # multiplication propage 0 à toutes les step() suivantes.
+        # Solution : reset group['lr'] aux base_lrs avant d'avancer le scheduler.
+        for group, base_lr in zip(self.optimizer.param_groups, self.scheduler.base_lrs):
+            group["lr"] = base_lr
+        for _ in range(self.current_epoch):
+            self.scheduler.step()
+        if self.use_amp and "scaler_state_dict" in checkpoint:
+            self.scaler.load_state_dict(checkpoint["scaler_state_dict"])
+        print(f"Reprise depuis l'epoch {self.current_epoch} "
+              f"(best_val_loss={self.best_val_loss:.4f}, "
+              f"no_improve={self.epochs_without_improvement})")

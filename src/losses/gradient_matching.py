@@ -87,11 +87,16 @@ class GradientMatchingLoss(nn.Module):
         Returns:
             Loss scalaire.
         """
+        # Travailler en espace log pour l'invariance à l'échelle (cohérence avec L_ssi)
+        # Sans ça, L_gm n'est pas scale-invariante et peut dominer L_ssi sur certains batches
+        pred_log = torch.log(prediction.clamp(min=self.eps))
+        tgt_log = torch.log(target.clamp(min=self.eps))
+
         # Gradients de la prédiction
-        pred_gx, pred_gy = self._compute_gradients(prediction)
+        pred_gx, pred_gy = self._compute_gradients(pred_log)
 
         # Gradients de la target
-        tgt_gx, tgt_gy = self._compute_gradients(target)
+        tgt_gx, tgt_gy = self._compute_gradients(tgt_log)
 
         # Distance L1 entre gradients
         diff_x = (pred_gx - tgt_gx).abs()

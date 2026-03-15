@@ -169,9 +169,10 @@ class DPTDecoder(nn.Module):
             reassembled.append(block(feat))
 
         # Étape 2 : Fusion progressive (bottom-up)
-        # On part du niveau le plus profond (index 0)
-        fused = self.fusion_blocks[0](reassembled[0])
-        for i in range(1, len(self.fusion_blocks)):
+        # On part du niveau le plus profond (index 3, résolution la plus petite = 18×18)
+        # et on remonte vers l'index 0 (résolution la plus grande = 148×148)
+        fused = self.fusion_blocks[3](reassembled[3])
+        for i in range(2, -1, -1):
             fused = self.fusion_blocks[i](fused, reassembled[i])
 
         # Étape 3 : Head — prédiction depth

@@ -84,6 +84,10 @@ def parse_args():
     # Reprise
     parser.add_argument("--resume", type=str, default=None, help="Checkpoint pour reprise")
 
+    # Mixed precision
+    parser.add_argument("--amp", action="store_true",
+                        help="Activer la précision mixte (torch.autocast, ~2x plus rapide sur H100)")
+
     # Sortie
     parser.add_argument("--output_dir", type=str, default="outputs", help="Répertoire de sortie")
     parser.add_argument("--seed", type=int, default=42, help="Graine aléatoire")
@@ -125,20 +129,27 @@ def main():
     train_transform = get_train_transforms(image_size=args.image_size)
     eval_transform = get_eval_transforms(image_size=args.image_size)
 
-    full_dataset = PseudoLabeledDataset(
+    # Deux datasets séparés avec transforms appropriées (même liste de fichiers)
+    train_dataset_base = PseudoLabeledDataset(
         image_dir=args.images_dir,
         pseudo_label_dir=args.pseudo_labels_dir,
         transform=train_transform,
         max_samples=args.max_samples,
     )
-
-    # Split train/val (90/10)
-    n_val = max(1, int(len(full_dataset) * 0.1))
-    n_train = len(full_dataset) - n_val
-    train_dataset, val_dataset = torch.utils.data.random_split(
-        full_dataset, [n_train, n_val],
-        generator=torch.Generator().manual_seed(args.seed),
+    val_dataset_base = PseudoLabeledDataset(
+        image_dir=args.images_dir,
+        pseudo_label_dir=args.pseudo_labels_dir,
+        transform=eval_transform,
+        max_samples=args.max_samples,
     )
+
+    # Split train/val (90/10) — mêmes indices appliqués aux deux datasets
+    n_total = len(train_dataset_base)
+    n_val = max(1, int(n_total * 0.1))
+    n_train = n_total - n_val
+    all_indices = torch.randperm(n_total, generator=torch.Generator().manual_seed(args.seed)).tolist()
+    train_dataset = torch.utils.data.Subset(train_dataset_base, all_indices[:n_train])
+    val_dataset = torch.utils.data.Subset(val_dataset_base, all_indices[n_train:])
 
     print(f"  Train : {n_train} images")
     print(f"  Val   : {n_val} images")
@@ -166,6 +177,7 @@ def main():
         "weight_decay": args.weight_decay,
         "batch_size": args.batch_size,
         "gradient_clip_max_norm": args.gradient_clip,
+        "use_amp": args.amp,
     }
 
     # 5. Trainer

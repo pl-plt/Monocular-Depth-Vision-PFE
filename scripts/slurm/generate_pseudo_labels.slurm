@@ -9,7 +9,7 @@
 #SBATCH --job-name=dav2-pseudo
 #SBATCH --output=outputs/slurm/pseudo_labels_%j.out
 #SBATCH --error=outputs/slurm/pseudo_labels_%j.out
-#SBATCH --partition=preemptable
+#SBATCH --partition=normal
 #SBATCH --gres=gpu:1
 #SBATCH --cpus-per-task=4
 #SBATCH --mem=32G
