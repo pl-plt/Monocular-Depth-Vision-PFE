@@ -83,6 +83,16 @@ def parse_args():
 
     # Reprise
     parser.add_argument("--resume", type=str, default=None, help="Checkpoint pour reprise")
+    parser.add_argument("--reset_scheduler", action="store_true",
+                        help="Réinitialiser le scheduler LR (nouveau cycle cosine depuis epoch 0)")
+    parser.add_argument("--eta_min", type=float, default=0.0,
+                        help="LR minimum du scheduler cosine (plancher, ex: 1e-6)")
+    parser.add_argument("--early_stopping_patience", type=int, default=5,
+                        help="Patience early stopping (epochs sans amélioration)")
+
+    # Mixed precision
+    parser.add_argument("--amp", action="store_true",
+                        help="Activer la précision mixte (torch.autocast, ~2x plus rapide sur H100)")
 
     # Sortie
     parser.add_argument("--output_dir", type=str, default="outputs", help="Répertoire de sortie")
@@ -184,6 +194,9 @@ def main():
         "weight_decay": args.weight_decay,
         "batch_size": args.batch_size,
         "gradient_clip_max_norm": args.gradient_clip,
+        "use_amp": args.amp,
+        "eta_min": args.eta_min,
+        "early_stopping_patience": args.early_stopping_patience,
     }
 
     # 5. Trainer
@@ -200,7 +213,7 @@ def main():
     # Reprise depuis checkpoint
     if args.resume:
         print(f"\n--- Reprise depuis checkpoint : {args.resume} ---")
-        trainer.resume_from_checkpoint(args.resume)
+        trainer.resume_from_checkpoint(args.resume, reset_scheduler=args.reset_scheduler)
 
     # 6. Entraînement
     print("\n--- Début de l'entraînement ---")

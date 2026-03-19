@@ -20,7 +20,7 @@
 #SBATCH --ntasks=1
 #SBATCH --nodelist=arcadia-slurm-node-4
 #SBATCH --mail-type=END,FAIL          # Notifications par mail
-#SBATCH --mail-user=ton.email@universite.fr
+#SBATCH --mail-user=pierlouis.pillet@telecom-sudparis.eu # <-- MODIFIER
 
 export PYTHONUNBUFFERED=1
 

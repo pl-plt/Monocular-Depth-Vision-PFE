@@ -97,7 +97,9 @@ class ScaleInvariantLoss(nn.Module):
         term2 = self.lambda_ssi * (diff.sum(dim=1) ** 2) / (n ** 2)
 
         # Loss finale : sqrt(term1 - term2)
-        loss = torch.sqrt((term1 - term2).clamp(min=self.eps))
+        # eps ajouté à l'intérieur du sqrt (pas en argument de clamp) pour éviter
+        # ∂L/∂x → 1/(2√ε) → ∞ quand le modèle converge (term1 - term2 → 0)
+        loss = torch.sqrt((term1 - term2).clamp(min=0) + self.eps)
 
         return loss.mean()
 

@@ -101,7 +101,11 @@ def parse_args():
 
     # Reprise
     parser.add_argument("--resume", type=str, default=None,
-                        help="Checkpoint pour reprise d'entraînement")
+                        help="Reprendre l'entraînement depuis un checkpoint (chemin vers le .pt).")
+
+    # Mixed precision
+    parser.add_argument("--amp", action="store_true",
+                        help="Activer la précision mixte (torch.autocast, ~2x plus rapide sur H100)")
 
     # Sortie
     parser.add_argument("--output_dir", type=str, default="outputs/teacher",
@@ -176,28 +180,40 @@ def main():
             sys.exit(1)
 
     if len(roots) == 1:
-        full_dataset = SyntheticDepthDataset(
+        full_train_dataset = SyntheticDepthDataset(
             root=roots[0],
             transform=train_transform,
             max_samples=args.max_samples,
         )
+        full_val_dataset = SyntheticDepthDataset(
+            root=roots[0],
+            transform=eval_transform,
+            max_samples=args.max_samples,
+        )
     else:
-        full_dataset = CombinedSyntheticDataset(
+        full_train_dataset = CombinedSyntheticDataset(
             roots=roots,
             transform=train_transform,
             max_samples_per_dataset=args.max_samples,
         )
+        full_val_dataset = CombinedSyntheticDataset(
+            roots=roots,
+            transform=eval_transform,
+            max_samples_per_dataset=args.max_samples,
+        )
 
-    # Split train/val
-    n_val = max(1, int(len(full_dataset) * args.val_ratio))
-    n_train = len(full_dataset) - n_val
-    train_dataset, val_dataset = torch.utils.data.random_split(
-        full_dataset, [n_train, n_val],
-        generator=torch.Generator().manual_seed(args.seed),
-    )
+    # Split train/val — mêmes indices sur les deux datasets (transforms différentes)
+    n_total = len(full_train_dataset)
+    n_val = max(1, int(n_total * args.val_ratio))
+    n_train = n_total - n_val
+    all_indices = torch.randperm(
+        n_total, generator=torch.Generator().manual_seed(args.seed)
+    ).tolist()
+    train_dataset = torch.utils.data.Subset(full_train_dataset, all_indices[:n_train])
+    val_dataset = torch.utils.data.Subset(full_val_dataset, all_indices[n_train:])
 
     print(f"  Datasets   : {roots}")
-    print(f"  Total      : {len(full_dataset)} images")
+    print(f"  Total      : {n_total} images")
     print(f"  Train      : {n_train} images")
     print(f"  Val        : {n_val} images")
 
@@ -228,6 +244,7 @@ def main():
         "checkpoint_interval": 2,
         "early_stopping_patience": 7,
         "log_interval": 20,
+        "use_amp": args.amp,
     }
 
     # ----- 5. Trainer -----

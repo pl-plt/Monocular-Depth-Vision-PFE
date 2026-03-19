@@ -55,7 +55,7 @@ class TestScaleInvariantLoss:
 
     def test_top_k_masking(self):
         """Top-K masking ne doit pas planter et doit retourner un scalaire."""
-        loss_fn = ScaleInvariantLoss(top_k_percent=0.10)
+        loss_fn = ScaleInvariantLoss(top_k_masking=0.10)
         pred = torch.rand(2, 1, 32, 32) + 0.01
         gt = torch.rand(2, 1, 32, 32) + 0.01
         mask = torch.ones(2, 1, 32, 32)
@@ -126,22 +126,23 @@ class TestGradientMatchingLoss:
 class TestDepthAnythingLoss:
     """Tests de la perte combinée."""
 
-    def test_output_scalar(self):
-        """La loss combinée retourne un scalaire."""
-        loss_fn = DepthAnythingLoss(alpha=0.5)
+    def test_output_dict_with_total(self):
+        """La loss combinée retourne un dict avec clé 'total' scalaire."""
+        loss_fn = DepthAnythingLoss(alpha_gm=0.5)
         pred = torch.rand(2, 1, 32, 32) + 0.01
         gt = torch.rand(2, 1, 32, 32) + 0.01
-        mask = torch.ones(2, 1, 32, 32)
-        loss = loss_fn(pred, gt, mask)
-        assert loss.dim() == 0
+        result = loss_fn(pred, gt)
+        assert isinstance(result, dict)
+        assert "total" in result
+        assert result["total"].dim() == 0
 
     def test_weighted_combination(self):
-        """alpha=0 ⇒ loss == L_ssi seule."""
-        loss_fn_alpha0 = DepthAnythingLoss(alpha=0.0)
+        """alpha_gm=0 ⇒ total ≈ L_ssi seule."""
+        loss_fn_alpha0 = DepthAnythingLoss(alpha_gm=0.0)
         loss_fn_ssi = ScaleInvariantLoss()
         pred = torch.rand(2, 1, 32, 32) + 0.01
         gt = torch.rand(2, 1, 32, 32) + 0.01
         mask = torch.ones(2, 1, 32, 32)
-        combined = loss_fn_alpha0(pred, gt, mask)
+        combined = loss_fn_alpha0(pred, gt)
         ssi_only = loss_fn_ssi(pred, gt, mask)
-        assert abs(combined.item() - ssi_only.item()) < 1e-5
+        assert abs(combined["total"].item() - ssi_only.item()) < 1e-5
