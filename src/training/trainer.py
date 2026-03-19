@@ -73,6 +73,7 @@ class Trainer:
             "early_stopping_patience": 5,   # Arrêter si val loss stagne
             "log_interval": 50,             # Logger tous les N batches
             "use_amp": False,               # Mixed precision (torch.autocast)
+            "eta_min": 0.0,                 # LR plancher du scheduler cosine
         }
         if config:
             self.config.update(config)
@@ -92,6 +93,7 @@ class Trainer:
         self.scheduler = CosineAnnealingLR(
             self.optimizer,
             T_max=self.config["epochs"],
+            eta_min=self.config["eta_min"],
         )
 
         # État de l'entraînement
@@ -283,29 +285,49 @@ class Trainer:
             torch.save(checkpoint, best_path)
             print(f"  Meilleur modèle sauvegardé (loss={loss:.4f})")
 
-    def resume_from_checkpoint(self, checkpoint_path: str):
-        """Reprend l'entraînement depuis un checkpoint."""
+    def resume_from_checkpoint(self, checkpoint_path: str, reset_scheduler: bool = False):
+        """Reprend l'entraînement depuis un checkpoint.
+
+        Args:
+            checkpoint_path: Chemin vers le fichier .pt.
+            reset_scheduler: Si True, repart d'un cycle cosine complet (epoch 0,
+                             LR = nouveau base_lr configuré). Utiliser pour les
+                             runs v4+ où on reset le LR après épuisement du cosine.
+                             Si False, reprend exactement là où le run précédent
+                             s'est arrêté (même position dans le cycle cosine).
+        """
         checkpoint = torch.load(checkpoint_path, map_location=self.device)
         self.model.load_state_dict(checkpoint["model_state_dict"])
         self.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
-        # Ne pas restaurer scheduler.state_dict() : cela écraserait T_max du nouveau run
-        # par la valeur sauvegardée, rendant les epochs supplémentaires inutiles (LR ≈ 0).
-        # On avance le scheduler à la bonne position dans le nouveau cycle.
-        self.current_epoch = checkpoint["epoch"] + 1
-        self.training_history = checkpoint.get("training_history", [])
-        self.best_val_loss = checkpoint.get("best_val_loss", self.best_val_loss)
-        self.epochs_without_improvement = checkpoint.get("epochs_without_improvement", 0)
+
+        if reset_scheduler:
+            # Nouveau cycle complet : écraser group['lr'] avec le nouveau base_lr
+            # (déjà fixé à self.config["learning_rate"] via __init__).
+            # Ne pas avancer le scheduler : T_max = epochs du nouveau run.
+            for group, base_lr in zip(self.optimizer.param_groups, self.scheduler.base_lrs):
+                group["lr"] = base_lr
+            self.current_epoch = 0
+            self.best_val_loss = float("inf")
+            self.epochs_without_improvement = 0
+            self.training_history = []
+        else:
+            # Reprise normale : restaurer la position dans le cycle cosine existant.
+            self.current_epoch = checkpoint["epoch"] + 1
+            self.training_history = checkpoint.get("training_history", [])
+            self.best_val_loss = checkpoint.get("best_val_loss", self.best_val_loss)
+            self.epochs_without_improvement = checkpoint.get("epochs_without_improvement", 0)
+            # CosineAnnealingLR est récursif : si le checkpoint avait lr≈0,
+            # reset d'abord group['lr'] puis avancer le scheduler pas à pas.
+            for group, base_lr in zip(self.optimizer.param_groups, self.scheduler.base_lrs):
+                group["lr"] = base_lr
+            for _ in range(self.current_epoch):
+                self.scheduler.step()
+
         self.global_step = checkpoint.get("global_step", 0)
-        # CosineAnnealingLR utilise une formule RÉCURSIVE : lr_t dépend de lr_{t-1}
-        # via group['lr']. Si le checkpoint a lr=0 (fin de l'ancien cycle), la
-        # multiplication propage 0 à toutes les step() suivantes.
-        # Solution : reset group['lr'] aux base_lrs avant d'avancer le scheduler.
-        for group, base_lr in zip(self.optimizer.param_groups, self.scheduler.base_lrs):
-            group["lr"] = base_lr
-        for _ in range(self.current_epoch):
-            self.scheduler.step()
         if self.use_amp and "scaler_state_dict" in checkpoint:
             self.scaler.load_state_dict(checkpoint["scaler_state_dict"])
-        print(f"Reprise depuis l'epoch {self.current_epoch} "
-              f"(best_val_loss={self.best_val_loss:.4f}, "
-              f"no_improve={self.epochs_without_improvement})")
+
+        mode = "reset (nouveau cycle cosine)" if reset_scheduler else f"reprise epoch {self.current_epoch}"
+        print(f"Reprise depuis checkpoint — {mode} | "
+              f"best_val_loss={self.best_val_loss:.4f} | "
+              f"no_improve={self.epochs_without_improvement}")
