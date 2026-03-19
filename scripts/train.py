@@ -79,7 +79,7 @@ def parse_args():
     # Loss
     parser.add_argument("--lambda_ssi", type=float, default=0.5, help="Lambda pour L_ssi")
     parser.add_argument("--alpha_gm", type=float, default=0.5, help="Poids de L_gm")
-    parser.add_argument("--top_k_masking", type=float, default=0.1, help="Top-K% masking")
+    parser.add_argument("--top_k_masking", type=float, default=0.1, help="Top-K%% masking")
 
     # Reprise
     parser.add_argument("--resume", type=str, default=None, help="Checkpoint pour reprise")
