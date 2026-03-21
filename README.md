@@ -2,11 +2,10 @@
 
 > Reproduction partielle du pipeline Depth Anything V2 : distillation de connaissance d'un Teacher DINOv2-Giant (1,1 milliard de parametres) vers un Student DINOv2-Small (25 M parametres) pour l'estimation de profondeur monoculaire en temps reel.
 
-**Auteurs :** *A completer (Prenom Nom, Prenom Nom)*
-**Encadrant :** *A completer*
-**Institution :** Telecom SudParis — Annee universitaire 2025-2026
+**Auteurs :** *Pierlouis Pillet ; Adam Ramsis ; Rodrick Zegang*  
+**Encadrant :** *Julien Romero*  
+**Institution :** Telecom SudParis — Annee universitaire 2025-2026  
 **Duree du projet :** 26 semaines — Cluster SLURM Arcadia (NVIDIA H100 NVL)
-
 ---
 
 ## Table des matieres
