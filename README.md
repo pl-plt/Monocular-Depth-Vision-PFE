@@ -409,17 +409,17 @@ Monocular-Depth-Vision-PFE/
 
 Les courbes ci-dessous montrent l'evolution de la loss (train et validation) au fil des epochs pour l'entrainement du Student.
 
-![Courbes de loss train/validation par epoch](docs/images/training_loss_curves.png)
+![Courbes de loss train/validation par epoch](docs/images/train_loss_epoch_student.jpeg)
 
-*Figure 1 — Evolution de la loss d'entrainement et de validation par epoch (TensorBoard).*
+*Figure 1 — Evolution de la loss d'entrainement et de validation par epoch du student (TensorBoard).*
 
-### Comparaisons visuelles des cartes de profondeur
+### Resultats des prédictions de notre teacher (DINOv2-Giant + DPT) sur des images de validation :
 
-Comparaison cote-a-cote entre l'image RGB d'entree, la ground truth, la prediction du Teacher et la prediction du Student :
+![Grille de comparaison des cartes de profondeur](docs/images/sa-teacher-example-1.jpeg)
+![Grille de comparaison des cartes de profondeur](docs/images/sa-teacher-example-2.jpeg)
+![Grille de comparaison des cartes de profondeur](docs/images/sa-teacher-example-3.jpeg)
 
-![Grille de comparaison des cartes de profondeur](docs/images/depth_comparison_grid.png)
-
-*Figure 2 — Image RGB, Ground Truth, prediction Teacher (DINOv2-Giant), prediction Student (DINOv2-Small).*
+*Figure 2 — Image RGB, Ground Truth, prediction Teacher (DINOv2-Giant).*
 
 ### Metriques d'evaluation sur NYU-Depth V2
 
@@ -436,27 +436,17 @@ Resultats obtenus par le Student (DINOv2-Small + DPT) sur le test set NYU-Depth 
 
 > **Analyse :** Les performances actuelles restent en retrait par rapport aux cibles du papier original. L'ecart s'explique principalement par le volume limite de donnees de pseudo-labels utilise (quelques milliers d'images vs 62M dans le papier), le nombre reduit d'iterations d'entrainement, et l'absence de fine-tuning metrique. Ces resultats constituent une base fonctionnelle a ameliorer.
 
-![Tableau de metriques d'evaluation](docs/images/benchmark_metrics_table.png)
+### Exemples d'inference et comparaison avec le papier original
 
-*Figure 3 — Resultats d'evaluation du Student sur NYU-Depth V2 compares aux objectifs.*
+Exemples de predictions du Student sur des images :
 
-### Exemples d'inference
+![Exemples d'inference sur NYU-Depth V2](docs/images/DA-Ours.jpeg)
 
-Exemples de predictions du Student sur des images du test set NYU-Depth V2 :
+*Figure 4 — Predictions du Student Entrainé sur une image benchmark.*
 
-![Exemples d'inference sur NYU-Depth V2](docs/images/inference_nyu_samples.png)
+![Exemples d'inference sur KITTI](docs/images/DAV2-best.jpeg)
 
-*Figure 4 — Predictions du Student sur des echantillons du test set NYU-Depth V2.*
-
-![Exemples d'inference sur KITTI](docs/images/inference_kitti_samples.png)
-
-*Figure 5 — Predictions du Student sur des echantillons du test set KITTI.*
-
-### Analyse d'erreurs
-
-![Meilleures et pires predictions](docs/images/best_worst_analysis.png)
-
-*Figure 6 — Les 20 meilleures et 20 pires predictions du Student, classees par AbsRel. Identification des cas d'echec (surfaces reflechissantes, objets transparents, scenes a forte ambiguite).*
+*Figure 5 — Predictions du Student du papier sur la même image.*
 
 ---
 
