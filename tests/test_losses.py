@@ -35,17 +35,17 @@ class TestScaleInvariantLoss:
         assert loss.item() >= 0
 
     def test_zero_on_identical(self):
-        """Loss ≈ 0 quand pred == gt."""
-        loss_fn = ScaleInvariantLoss()
+        """Loss ≈ sqrt(eps) quand pred == gt (stabilité numérique)."""
+        loss_fn = ScaleInvariantLoss(eps=1e-6)
         depth = torch.rand(2, 1, 32, 32) + 0.01
         mask = torch.ones(2, 1, 32, 32)
         loss = loss_fn(depth, depth.clone(), mask)
-        assert loss.item() < 1e-5
+        assert loss.item() < 0.01
 
     def test_gradient_flows(self):
         """Le gradient doit remonter vers pred."""
         loss_fn = ScaleInvariantLoss()
-        pred = torch.rand(2, 1, 32, 32, requires_grad=True) + 0.01
+        pred = (torch.rand(2, 1, 32, 32) + 0.01).requires_grad_(True)
         gt = torch.rand(2, 1, 32, 32) + 0.01
         mask = torch.ones(2, 1, 32, 32)
         loss = loss_fn(pred, gt, mask)

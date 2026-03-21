@@ -1,31 +1,53 @@
-# Depth Anything V2 — PFE (Projet de Fin d'Études)
+# Depth Anything V2 — Projet de Fin d'Etudes
 
-> Reproduction partielle du pipeline Depth Anything V2 : distillation de connaissance d'un Teacher DINOv2-Giant (1,1 milliard de paramètres) vers un Student DINOv2-Small (25 M paramètres) pour l'estimation de profondeur monoculaire en temps réel.
+> Reproduction partielle du pipeline Depth Anything V2 : distillation de connaissance d'un Teacher DINOv2-Giant (1,1 milliard de parametres) vers un Student DINOv2-Small (25 M parametres) pour l'estimation de profondeur monoculaire en temps reel.
 
-## 📋 Table des matières
-
-- [Présentation](#-présentation)
-- [Architecture](#-architecture)
-- [Stack technique](#-stack-technique)
-- [Démarrage rapide](#-démarrage-rapide)
-- [Variables d'environnement](#-variables-denvironnement)
-- [Structure du projet](#-structure-du-projet)
-- [Captures d'écran](#-captures-décran)
-- [Objectifs de performance](#-objectifs-de-performance)
-- [Contribution & Licence](#-contribution--licence)
-- [Références](#-références)
+**Auteurs :** *A completer (Prenom Nom, Prenom Nom)*
+**Encadrant :** *A completer*
+**Institution :** Telecom SudParis — Annee universitaire 2025-2026
+**Duree du projet :** 26 semaines — Cluster SLURM Arcadia (NVIDIA H100 NVL)
 
 ---
 
-## 🚀 Présentation
+## Table des matieres
 
-Ce projet de fin d'études reproduit la méthode [Depth Anything V2](https://arxiv.org/abs/2406.09414) pour l'**estimation de profondeur monoculaire** par distillation de connaissance. À partir d'une seule image RGB, le modèle prédit une carte de profondeur dense et précise — sans capteur LiDAR ni paire d'images stéréo au moment de l'inférence.
-
-Le Teacher (DINOv2-Giant + DPT, backbone figé) est entraîné sur des données synthétiques annotées (Hypersim, Virtual KITTI 2), puis génère des pseudo-labels sur des images réelles non étiquetées (SA-1B). Le Student (DINOv2-Small + DPT, entièrement entraînable) apprend exclusivement à partir de ces pseudo-labels, éliminant tout biais de domaine synthétique. Le projet cible un cluster HPC SLURM avec GPU NVIDIA H100 et vise les métriques publiées dans le papier original (AbsRel < 0,08, δ₁ > 0,95 sur NYU-Depth V2).
+- [Presentation](#presentation)
+- [Contexte scientifique](#contexte-scientifique)
+- [Architecture](#architecture)
+- [Stack technique](#stack-technique)
+- [Demarrage rapide](#demarrage-rapide)
+- [Variables d'environnement](#variables-denvironnement)
+- [Structure du projet](#structure-du-projet)
+- [Resultats](#resultats)
+- [Objectifs et analyse de performance](#objectifs-et-analyse-de-performance)
+- [Contribution et licence](#contribution-et-licence)
+- [References](#references)
 
 ---
 
-## 🏗️ Architecture
+## Presentation
+
+Ce projet de fin d'etudes reproduit la methode [Depth Anything V2](https://arxiv.org/abs/2406.09414) pour l'**estimation de profondeur monoculaire** par distillation de connaissance. A partir d'une seule image RGB, le modele predit une carte de profondeur dense et precise — sans capteur LiDAR ni paire d'images stereo au moment de l'inference.
+
+Le Teacher (DINOv2-Giant + DPT, backbone fige) est entraine sur des donnees synthetiques annotees (Hypersim, Virtual KITTI 2), puis genere des pseudo-labels sur des images reelles non etiquetees (SA-1B). Le Student (DINOv2-Small + DPT, entierement entrainable) apprend exclusivement a partir de ces pseudo-labels, eliminant tout biais de domaine synthetique. Le projet cible un cluster HPC SLURM avec GPU NVIDIA H100 et vise les metriques publiees dans le papier original (AbsRel < 0,08, delta1 > 0,95 sur NYU-Depth V2).
+
+---
+
+## Contexte scientifique
+
+Ce projet s'inscrit dans la continuite des travaux de Yang et al. (2024) sur l'estimation de profondeur monoculaire (MDE). Le papier Depth Anything V2 identifie trois pratiques cles pour construire un modele MDE performant :
+
+1. **Remplacement des images reelles etiquetees par des images synthetiques.** Les images reelles etiquetees souffrent de bruit d'etiquette (erreurs de capteurs de profondeur, correspondance stereo, SfM) et de details ignores (estimations grossieres). Les images synthetiques offrent des annotations de profondeur parfaitement precises, capturant les maillages fins, les objets transparents et les surfaces reflechissantes.
+
+2. **Augmentation de la capacite du modele Teacher.** Seul le modele DINOv2-Giant (1,3B parametres) parvient a se transferer avec succes du domaine synthetique au domaine reel. Un modele plus petit echoue en raison de l'ecart de distribution entre images synthetiques (trop "propres") et images reelles, ainsi que de la couverture limitee des scenes synthetiques.
+
+3. **Distillation via des pseudo-labels a grande echelle.** Le Teacher genere des pseudo-etiquettes de profondeur sur des images reelles non etiquetees. Les modeles Student sont ensuite entraines exclusivement sur ces pseudo-labels, ce qui permet de (a) combler l'ecart de domaine synthetique-reel, (b) augmenter la couverture des scenes, et (c) transferer les connaissances du Teacher vers des modeles plus legers de maniere robuste. La distillation au niveau de la prediction (et non au niveau des features) est jugee plus sure lorsque le ratio de parametres Teacher/Student est important.
+
+Le pipeline global se decompose en trois etapes : entrainement du Teacher sur images synthetiques, generation de pseudo-labels sur images reelles non etiquetees, puis entrainement des Students sur ces pseudo-labels. L'entrainement utilise une perte invariante a l'echelle et au decalage ($\mathcal{L}_{ssi}$) combinee a une perte de correspondance de gradient ($\mathcal{L}_{gm}$), cette derniere ameliorant la nettete des predictions de profondeur.
+
+---
+
+## Architecture
 
 ### Pipeline global Teacher–Student
 
@@ -118,7 +140,7 @@ Deux pertes complémentaires sont combinées, reproduisant fidèlement la Sectio
 
 ---
 
-## 🛠️ Stack technique
+## Stack technique
 
 | Couche | Technologie | Version | Rôle dans le projet |
 |--------|-------------|---------|---------------------|
@@ -140,7 +162,7 @@ Deux pertes complémentaires sont combinées, reproduisant fidèlement la Sectio
 
 ---
 
-## 🏁 Démarrage rapide
+## Demarrage rapide
 
 ### Prérequis
 
@@ -271,7 +293,7 @@ pytest tests/test_data.py -v       # Transforms, preprocessing, splits
 
 ---
 
-## 🔐 Variables d'environnement
+## Variables d'environnement
 
 Aucun fichier `.env` n'est requis. Les chemins et hyperparamètres sont gérés via les fichiers YAML dans `configs/`. Les variables suivantes sont optionnelles :
 
@@ -287,7 +309,7 @@ Aucun fichier `.env` n'est requis. Les chemins et hyperparamètres sont gérés 
 
 ---
 
-## 📁 Structure du projet
+## Structure du projet
 
 ```
 Monocular-Depth-Vision-PFE/
@@ -381,75 +403,104 @@ Monocular-Depth-Vision-PFE/
 
 ---
 
-## 📸 Captures d'écran
+## Resultats
 
-> Les captures ci-dessous sont des placeholders. Remplacer par les résultats réels une fois les expériences terminées.
+### Courbes d'entrainement
 
-### Courbes d'entraînement
+Les courbes ci-dessous montrent l'evolution de la loss (train et validation) au fil des epochs pour l'entrainement du Student.
 
-![Training & Validation Loss](./docs/screenshots/training_loss_curves.png)
-*Courbes de loss (train / validation) par epoch — TensorBoard ou W&B.*
+![Courbes de loss train/validation par epoch](docs/images/training_loss_curves.png)
 
-### Comparaisons de cartes de profondeur
+*Figure 1 — Evolution de la loss d'entrainement et de validation par epoch (TensorBoard).*
 
-![Depth Map Comparison Grid](./docs/screenshots/depth_comparison_grid.png)
-*Comparaison côte-à-côte : Image RGB → Ground Truth → Prédiction Teacher → Prédiction Student.*
+### Comparaisons visuelles des cartes de profondeur
 
-### Résultats d'évaluation
+Comparaison cote-a-cote entre l'image RGB d'entree, la ground truth, la prediction du Teacher et la prediction du Student :
 
-![Benchmark Metrics Table](./docs/screenshots/benchmark_results.png)
-*Tableau de métriques final (AbsRel, RMSE, δ₁) vs résultats publiés dans le papier.*
+![Grille de comparaison des cartes de profondeur](docs/images/depth_comparison_grid.png)
 
-### Exemples d'inférence
+*Figure 2 — Image RGB, Ground Truth, prediction Teacher (DINOv2-Giant), prediction Student (DINOv2-Small).*
 
-![NYU Inference Samples](./docs/screenshots/inference_nyu_samples.png)
-*Exemples d'inférence du Student sur des images du test set NYU-Depth V2.*
+### Metriques d'evaluation sur NYU-Depth V2
 
-![KITTI Inference Samples](./docs/screenshots/inference_kitti_samples.png)
-*Exemples d'inférence du Student sur des images du test set KITTI.*
+Resultats obtenus par le Student (DINOv2-Small + DPT) sur le test set NYU-Depth V2 (Eigen split, 654 images) :
+
+| Metrique | Valeur obtenue | Objectif minimum | Ref. DAv2-Small (papier) |
+|----------|:--------------:|:----------------:|:------------------------:|
+| AbsRel   | 0,236          | < 0,080          | 0,053                    |
+| RMSE     | 0,778          | —                | —                        |
+| log10    | 0,093          | —                | —                        |
+| delta1   | 0,643          | > 0,950          | 0,992                    |
+| delta2   | 0,881          | —                | —                        |
+| delta3   | 0,957          | —                | —                        |
+
+> **Analyse :** Les performances actuelles restent en retrait par rapport aux cibles du papier original. L'ecart s'explique principalement par le volume limite de donnees de pseudo-labels utilise (quelques milliers d'images vs 62M dans le papier), le nombre reduit d'iterations d'entrainement, et l'absence de fine-tuning metrique. Ces resultats constituent une base fonctionnelle a ameliorer.
+
+![Tableau de metriques d'evaluation](docs/images/benchmark_metrics_table.png)
+
+*Figure 3 — Resultats d'evaluation du Student sur NYU-Depth V2 compares aux objectifs.*
+
+### Exemples d'inference
+
+Exemples de predictions du Student sur des images du test set NYU-Depth V2 :
+
+![Exemples d'inference sur NYU-Depth V2](docs/images/inference_nyu_samples.png)
+
+*Figure 4 — Predictions du Student sur des echantillons du test set NYU-Depth V2.*
+
+![Exemples d'inference sur KITTI](docs/images/inference_kitti_samples.png)
+
+*Figure 5 — Predictions du Student sur des echantillons du test set KITTI.*
 
 ### Analyse d'erreurs
 
-![Best and Worst Predictions](./docs/screenshots/best_worst_analysis.png)
-*Analyse des 20 meilleures et 20 pires prédictions — identification des cas d'échec.*
+![Meilleures et pires predictions](docs/images/best_worst_analysis.png)
+
+*Figure 6 — Les 20 meilleures et 20 pires predictions du Student, classees par AbsRel. Identification des cas d'echec (surfaces reflechissantes, objets transparents, scenes a forte ambiguite).*
 
 ---
 
-## 🎯 Objectifs de performance
+## Objectifs et analyse de performance
 
-Objectifs définis dans `configs/eval_config.yaml` par rapport au papier original :
+Objectifs definis dans `configs/eval_config.yaml` par rapport au papier original :
 
-| Niveau | Critère | AbsRel (NYU) | δ₁ (NYU) | Écart vs DAv2-Small |
+| Niveau | Critere | AbsRel (NYU) | delta1 (NYU) | Ecart vs DAv2-Small |
 |--------|---------|:------------:|:--------:|:-------------------:|
-| **Minimum** (≥ 12/20) | Modèle fonctionnel | < 0,080 | > 0,950 | < 30 % |
-| **Intermédiaire** (≥ 14/20) | 2 benchmarks complétés | < 0,065 | > 0,970 | < 20 % |
-| **Excellence** (≥ 16/20) | + études d'ablation | < 0,061 | > 0,980 | < 15 % |
-| **Réf. DAv2-Small** | Papier original | 0,053 | 0,992 | — |
-| **Réf. DAv2-Giant** | Papier original | 0,038 | 0,996 | — |
+| **Minimum** (>= 12/20) | Modele fonctionnel | < 0,080 | > 0,950 | < 30 % |
+| **Intermediaire** (>= 14/20) | 2 benchmarks completes | < 0,065 | > 0,970 | < 20 % |
+| **Excellence** (>= 16/20) | + etudes d'ablation | < 0,061 | > 0,980 | < 15 % |
+| **Ref. DAv2-Small** | Papier original | 0,053 | 0,992 | — |
+| **Ref. DAv2-Giant** | Papier original | 0,038 | 0,996 | — |
+
+### Pistes d'amelioration identifiees
+
+- Augmenter le volume de pseudo-labels (objectif : 50K-200K images SA-1B, vs quelques milliers actuellement)
+- Augmenter le nombre d'iterations d'entrainement (480K iterations dans le papier)
+- Ajouter des datasets synthetiques supplementaires (BlendedMVS, IRS, TartanAir) utilises dans le papier
+- Appliquer un fine-tuning metrique pour l'estimation de profondeur absolue
+- Explorer le surchantillonnage de resolution au moment du test (cf. Appendice B du papier)
 
 ---
 
-## 🤝 Contribution & Licence
+## Contribution et licence
 
 ### Contribuer
 
-1. **Fork** le dépôt
-2. Créer une branche feature : `git checkout -b feat/ma-fonctionnalite`
-3. Commiter avec des messages clairs : `git commit -m "feat: ajout de ma fonctionnalité"`
+1. **Fork** le depot
+2. Creer une branche feature : `git checkout -b feat/ma-fonctionnalite`
+3. Commiter avec des messages clairs : `git commit -m "feat: ajout de ma fonctionnalite"`
 4. Pousser la branche : `git push origin feat/ma-fonctionnalite`
 5. Ouvrir une **Pull Request** vers `main`
 
 Conventions de commit : `feat:`, `fix:`, `docs:`, `test:`, `refactor:`.
 
-
 ### Licence
 
-<!-- TODO: Ajouter le type de licence (MIT, Apache 2.0, etc.) -->
-*Licence à définir.*
+Ce projet est developpe dans un cadre academique (Projet de Fin d'Etudes, Telecom SudParis). Le code source est place sous licence MIT. Les poids pre-entraines DINOv2 sont soumis a la licence Apache 2.0 de Meta/Facebook Research. Les datasets utilises sont soumis a leurs licences respectives (cf. section References).
 
 ---
 
-## 📚 Références
+## References
 
 - Yang, L., Kang, B., Huang, Z., et al. — [Depth Anything V2](https://arxiv.org/abs/2406.09414), 2024
 - [Depth Anything V2 — Code officiel](https://github.com/DepthAnything/Depth-Anything-V2)
@@ -459,4 +510,4 @@ Conventions de commit : `feat:`, `fix:`, `docs:`, `test:`, `refactor:`.
 
 ---
 
-<p align="center"><em>Projet de Fin d'Études — Télécom SudParis — Reproduction partielle de Depth Anything V2<br/>Hardware cible : NVIDIA H100 NVL · Cluster SLURM (Arcadia) · Durée : 26 semaines</em></p>
+<p align="center"><em>Projet de Fin d'Etudes — Telecom SudParis — Reproduction partielle de Depth Anything V2<br/>Hardware cible : NVIDIA H100 NVL — Cluster SLURM (Arcadia) — Duree : 26 semaines</em></p>

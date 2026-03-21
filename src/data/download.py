@@ -1,196 +1,152 @@
 """
-download.py — Scripts de téléchargement des datasets.
+download.py — Fonctions utilitaires de telechargement des datasets.
 
-Datasets à télécharger :
-- Synthétiques : Hypersim, Virtual KITTI 2 (Phase 2, semaines 4-5)
-- Réelles non étiquetées : SA-1B subset (Phase 2, semaines 4-5)
-- Benchmarks : NYU-Depth V2 test, KITTI test (Phase 0)
+Chaque fonction delegue au script dedie dans scripts/.
+Ce module peut etre importe par d'autres composants (notebooks, pipelines).
+
+Datasets disponibles :
+- Synthetiques : Hypersim, Virtual KITTI 2
+- Reelles non etiquetees : SA-1B subset
+- Benchmarks : NYU-Depth V2 test
 
 Ref: Phase 2 de la roadmap + Appendice A du papier
 """
 
-import os
-import argparse
+import subprocess
+import sys
 from pathlib import Path
 from typing import Optional
 
+SCRIPTS_DIR = Path(__file__).resolve().parent.parent.parent / "scripts"
+
+
+def _run_script(script_name: str, args: list):
+    """Lance un script de telechargement dedie."""
+    script_path = SCRIPTS_DIR / script_name
+    if not script_path.exists():
+        raise FileNotFoundError(f"Script introuvable : {script_path}")
+
+    cmd = [sys.executable, str(script_path)] + [str(a) for a in args]
+    result = subprocess.run(cmd, check=False)
+    if result.returncode != 0:
+        raise RuntimeError(f"{script_name} a echoue (code {result.returncode})")
+
 
 def download_hypersim(
-    output_dir: str,
-    max_samples: int = 50_000,
-    scenes: Optional[list] = None,
+    output_dir: str = "datasets/synthetic/hypersim",
+    max_scenes: Optional[int] = None,
+    resume: bool = True,
+    workers: int = 1,
 ):
     """
-    Télécharge le dataset Hypersim (images synthétiques indoor, ~50k images).
+    Telecharge le dataset Hypersim (images synthetiques indoor).
 
-    Source : https://github.com/apple/ml-hypersim
-    Stockage estimé : ~50 GB
+    Delegue a scripts/download_hypersim.py.
 
     Args:
-        output_dir: Répertoire de destination.
-        max_samples: Nombre max d'images à télécharger.
-        scenes: Liste de scènes spécifiques (None = toutes).
+        output_dir: Repertoire de destination.
+        max_scenes: Nombre max de scenes a traiter (None = toutes).
+        resume: Reprendre un telechargement interrompu.
+        workers: Nombre de telechargements paralleles.
     """
-    # TODO: Implémenter le téléchargement Hypersim
-    # - Utiliser l'API officielle ou téléchargement direct
-    # - Échantillonnage stratifié (diversité de scènes)
-    # - Sauvegarder images RGB + depth maps
-    raise NotImplementedError(
-        "Implémenter le téléchargement Hypersim. "
-        "Voir : https://github.com/apple/ml-hypersim"
-    )
+    args = ["--output_dir", output_dir]
+    if max_scenes is not None:
+        args += ["--max_scenes", str(max_scenes)]
+    if resume:
+        args.append("--resume")
+    if workers > 1:
+        args += ["--workers", str(workers)]
+    _run_script("download_hypersim.py", args)
 
 
 def download_virtual_kitti(
-    output_dir: str,
-    max_samples: int = 20_000,
+    output_dir: str = "datasets/synthetic/vkitti2",
+    resume: bool = True,
 ):
     """
-    Télécharge Virtual KITTI 2 (images synthétiques outdoor/driving).
+    Telecharge Virtual KITTI 2 (images synthetiques outdoor/driving).
 
-    Source : https://europe.naverlabs.com/research/computer-vision/proxy-virtual-worlds-vkitti-2/
-    Stockage estimé : ~15 GB
+    Delegue a scripts/download_vkitti2.py.
 
     Args:
-        output_dir: Répertoire de destination.
-        max_samples: Nombre max d'images.
+        output_dir: Repertoire de destination.
+        resume: Reprendre un telechargement interrompu.
     """
-    # TODO: Implémenter le téléchargement Virtual KITTI 2
-    raise NotImplementedError(
-        "Implémenter le téléchargement Virtual KITTI 2."
-    )
+    args = ["--output_dir", output_dir]
+    if resume:
+        args.append("--resume")
+    _run_script("download_vkitti2.py", args)
 
 
 def download_sa1b_subset(
-    output_dir: str,
-    max_samples: int = 200_000,
-    min_resolution: int = 512,
+    links_file: str,
+    output_dir: str = "datasets/real_unlabeled/sa1b/images",
+    n_tars: int = 4,
 ):
     """
-    Télécharge un subset de SA-1B (images réelles non étiquetées).
+    Telecharge un subset de SA-1B (images reelles non etiquetees).
 
-    Source : https://ai.meta.com/datasets/segment-anything/
-    Stockage estimé : 200-500 GB selon le nombre d'images.
-
-    Volume cible progressif :
-    - Phase 1 : 50,000 images (proto rapide)
-    - Phase 2 : 200,000 images (si Phase 1 OK)
-    - Phase 3 : 500,000 images (si temps disponible)
+    Delegue a scripts/download_sa1b.py.
 
     Args:
-        output_dir: Répertoire de destination.
-        max_samples: Nombre max d'images.
-        min_resolution: Résolution minimale (filtrage).
+        links_file: Chemin vers le fichier TSV de liens SA-1B.
+        output_dir: Repertoire de destination.
+        n_tars: Nombre de tars a telecharger (~11K images chacun).
     """
-    # TODO: Implémenter le téléchargement SA-1B subset
-    # - Filtrer images trop petites (< min_resolution)
-    # - Diversité indoor/outdoor
-    raise NotImplementedError(
-        "Implémenter le téléchargement SA-1B. "
-        "Voir : https://ai.meta.com/datasets/segment-anything/"
-    )
+    args = [
+        "--links_file", links_file,
+        "--output_dir", output_dir,
+        "--n_tars", str(n_tars),
+    ]
+    _run_script("download_sa1b.py", args)
 
 
 def download_nyu_depth_v2_test(
-    output_dir: str,
+    output_dir: str = "datasets/real_depth/nyudepthv2",
     raw_dir: str = "datasets/raw/nyudepthv2",
     resume: bool = True,
 ):
     """
-    Télécharge/extrait le test set NYU-Depth V2 (654 images, indoor).
+    Telecharge/extrait le test set NYU-Depth V2 (654 images, indoor).
 
-    Eigen split : indices 795–1448 du fichier nyu_depth_v2_labeled.mat.
-    Réutilise datasets/raw/indoor/nyu_depth_v2_labeled.mat si déjà présent.
-
-    Sortie :
-        output_dir/images/  → 654 PNG RGB
-        output_dir/depth/   → 654 .npy float32 (mètres)
+    Delegue a scripts/download_nyu_test.py.
 
     Args:
-        output_dir: Répertoire de destination.
-        raw_dir: Répertoire pour le .mat brut.
-        resume: Reprendre un téléchargement interrompu.
+        output_dir: Repertoire de destination.
+        raw_dir: Repertoire pour le .mat brut.
+        resume: Reprendre un telechargement interrompu.
     """
-    import subprocess
-    import sys
-
-    # Déléguer au script dédié qui gère toute la logique d'extraction
-    script = Path(__file__).parent.parent.parent / "scripts" / "download_nyu_test.py"
-    cmd = [
-        sys.executable, str(script),
-        "--output_dir", output_dir,
-        "--raw_dir", raw_dir,
-    ]
+    args = ["--output_dir", output_dir, "--raw_dir", raw_dir]
     if resume:
-        cmd.append("--resume")
-
-    result = subprocess.run(cmd, check=False)
-    if result.returncode != 0:
-        raise RuntimeError(f"download_nyu_test.py a échoué (code {result.returncode})")
+        args.append("--resume")
+    _run_script("download_nyu_test.py", args)
 
 
-def download_kitti_test(output_dir: str):
+def download_indoor_images(
+    dataset: str = "all",
+    output_dir: str = "datasets/real_unlabeled/indoor",
+    resume: bool = True,
+):
     """
-    Télécharge le test set KITTI (697 images, outdoor/driving).
+    Telecharge des images indoor (NYU train, SUN RGB-D, DA-2K).
 
-    Utilisé pour l'évaluation (Phase 5).
+    Delegue a scripts/download_indoor_images.py.
 
     Args:
-        output_dir: Répertoire de destination.
+        dataset: Sous-dataset ('nyu', 'sun', 'da_2k', 'all').
+        output_dir: Repertoire de destination.
+        resume: Reprendre un telechargement interrompu.
     """
-    # TODO: Implémenter le téléchargement KITTI test set
-    raise NotImplementedError(
-        "Implémenter le téléchargement KITTI eigen split test set."
-    )
+    args = ["--dataset", dataset, "--output_dir", output_dir]
+    if resume:
+        args.append("--resume")
+    _run_script("download_indoor_images.py", args)
 
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Téléchargement des datasets")
-    parser.add_argument(
-        "--dataset",
-        choices=["hypersim", "vkitti", "sa1b", "nyu_test", "kitti_test", "all"],
-        required=True,
-        help="Dataset à télécharger.",
-    )
-    parser.add_argument(
-        "--output_dir",
-        type=str,
-        default="datasets",
-        help="Répertoire de sortie.",
-    )
-    parser.add_argument(
-        "--max_samples",
-        type=int,
-        default=50_000,
-        help="Nombre max d'échantillons.",
-    )
-
-    args = parser.parse_args()
-    os.makedirs(args.output_dir, exist_ok=True)
-
-    download_funcs = {
-        "hypersim": lambda: download_hypersim(
-            f"{args.output_dir}/synthetic/hypersim", args.max_samples
-        ),
-        "vkitti": lambda: download_virtual_kitti(
-            f"{args.output_dir}/synthetic/vkitti2", args.max_samples
-        ),
-        "sa1b": lambda: download_sa1b_subset(
-            f"{args.output_dir}/real_unlabeled/sa1b", args.max_samples
-        ),
-        "nyu_test": lambda: download_nyu_depth_v2_test(
-            f"{args.output_dir}/benchmarks/nyu_depth_v2"
-        ),
-        "kitti_test": lambda: download_kitti_test(
-            f"{args.output_dir}/benchmarks/kitti"
-        ),
-    }
-
-    if args.dataset == "all":
-        for name, func in download_funcs.items():
-            print(f"\n{'='*60}")
-            print(f"Téléchargement : {name}")
-            print(f"{'='*60}")
-            func()
-    else:
-        download_funcs[args.dataset]()
+__all__ = [
+    "download_hypersim",
+    "download_virtual_kitti",
+    "download_sa1b_subset",
+    "download_nyu_depth_v2_test",
+    "download_indoor_images",
+]
